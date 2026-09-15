@@ -32,16 +32,16 @@ export function PilgrimDesktopHeader() {
   useEffect(() => { setMounted(true); }, []);
 
   return (
-    <header className="hidden md:flex sticky top-0 z-40 bg-gradient-to-r from-[#7a1425] via-[#9b1b30] to-[#7a1425] text-white shadow-lg border-b border-white/10 h-16 items-center">
+    <header className="hidden md:flex sticky top-0 z-40 bg-linear-to-r from-[#7a1425] via-[#9b1b30] to-[#7a1425] text-white shadow-lg border-b border-white/10 h-16 items-center">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
         <div className="flex items-center justify-between gap-4">
 
           {/* Logo & Temple Branding */}
           <Link
             href="/"
-            className="flex items-center gap-3 group text-white no-underline focus:outline-none flex-shrink-0"
+            className="flex items-center gap-3 group text-white no-underline focus:outline-none shrink-0"
           >
-            <div className="w-10 h-10 rounded-full bg-amber-500/30 border border-amber-300/50 flex items-center justify-center shadow-inner group-hover:scale-105 transition-transform flex-shrink-0">
+            <div className="w-10 h-10 rounded-full bg-amber-500/30 border border-amber-300/50 flex items-center justify-center shadow-inner group-hover:scale-105 transition-transform shrink-0">
               <Flame size={20} className="text-amber-300" aria-hidden />
             </div>
             <div className="hidden lg:block">
@@ -89,7 +89,7 @@ export function PilgrimDesktopHeader() {
           )}
 
           {/* Right Actions */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             {mounted && <LanguageToggle currentLocale={locale} />}
             <Link
               href="/admin/dashboard"

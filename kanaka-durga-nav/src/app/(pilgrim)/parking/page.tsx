@@ -89,10 +89,10 @@ function ParkingCard({ area, locale, t }: { area: ParkingArea; locale: string; t
       <div>
         <div className="flex items-start justify-between gap-2 mb-3">
           <div>
-            <h2 className="font-bold text-base sm:text-lg text-[var(--color-text)]">
+            <h2 className="font-bold text-base sm:text-lg text-(--color-text)">
               {locale === 'te' ? area.name_te : area.name}
             </h2>
-            <p className="text-xs text-[var(--color-text-muted)] mt-1 font-medium">
+            <p className="text-xs text-text-muted mt-1 font-medium">
               {t(`type.${area.parking_type}`)} · <span className="text-gray-700">{area.vehicle_types.join(' · ')}</span>
             </p>
           </div>
@@ -129,7 +129,7 @@ function ParkingCard({ area, locale, t }: { area: ParkingArea; locale: string; t
         {/* Availability bar */}
         {availablePct !== null && (
           <div className="mb-4 bg-gray-50 rounded-xl p-3 border border-gray-100">
-            <div className="flex justify-between text-xs font-semibold text-[var(--color-text-muted)] mb-1.5">
+            <div className="flex justify-between text-xs font-semibold text-text-muted mb-1.5">
               <span>{locale === 'te' ? 'ఖాళీ లభ్యత' : 'Slots Available'}</span>
               <span className={cn(
                 availablePct > 30 ? 'text-emerald-700' :
@@ -154,7 +154,7 @@ function ParkingCard({ area, locale, t }: { area: ParkingArea; locale: string; t
         )}
       </div>
 
-      <div className="pt-3 border-t border-[var(--color-border)] mt-2">
+      <div className="pt-3 border-t border-border mt-2">
         <Link
           href={`/navigate?location=${area.location_id ?? ''}&type=parking`}
           className="btn btn-outline w-full text-xs font-bold py-2 flex items-center justify-center gap-1.5"

@@ -279,7 +279,7 @@ export function MapView({
       {isLoading && (
         <div className="absolute inset-0 bg-gray-100 flex items-center justify-center z-10">
           <div className="text-center">
-            <div className="w-10 h-10 border-3 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <div className="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
             <p className="text-sm text-gray-500 font-medium">Loading map...</p>
           </div>
         </div>

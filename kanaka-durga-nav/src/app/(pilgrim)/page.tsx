@@ -107,7 +107,7 @@ export default function HomePage() {
             {/* Main branding */}
             <div className="md:col-span-8">
               <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-full bg-amber-400/30 border border-amber-300/40 flex items-center justify-center flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-amber-400/30 border border-amber-300/40 flex items-center justify-center shrink-0">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                     <path d="M12 2C10.5 2 9.5 3 9.5 4.5C9.5 6 10.5 7 12 7C13.5 7 14.5 6 14.5 4.5C14.5 3 13.5 2 12 2Z" fill="#fbbf24"/>
                     <path d="M12 8C9 8 7 10 7 13C7 16 9 18 12 22C15 18 17 16 17 13C17 10 15 8 12 8Z" fill="#fde68a"/>
@@ -203,7 +203,7 @@ export default function HomePage() {
       {/* ===== URGENT ANNOUNCEMENT BANNER ===== */}
       {urgentAnnouncement && (
         <div className="announcement-urgent px-4 py-3 sm:px-8 sm:py-4 flex items-center justify-center gap-3 shadow-inner">
-          <Bell size={18} className="flex-shrink-0 animate-bounce" aria-hidden />
+          <Bell size={18} className="shrink-0 animate-bounce" aria-hidden />
           <div className="text-center sm:text-left">
             <span className="font-bold text-sm sm:text-base mr-2">
               {locale === 'te' ? urgentAnnouncement.title_te : urgentAnnouncement.title}:
@@ -220,11 +220,11 @@ export default function HomePage() {
         {/* ===== 6 CATEGORY TILES (RESPONSIVE GRID) ===== */}
         <section aria-label="Navigation categories">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg sm:text-xl font-bold text-[var(--color-text)] flex items-center gap-2">
-              <Globe2 size={22} className="text-[var(--color-primary)]" aria-hidden />
+            <h2 className="text-lg sm:text-xl font-bold text-(--color-text) flex items-center gap-2">
+              <Globe2 size={22} className="text-primary" aria-hidden />
               <span>{locale === 'te' ? 'ప్రధాన సేవలు & నావిగేషన్' : 'Temple Facilities & Navigation'}</span>
             </h2>
-            <span className="text-xs text-[var(--color-text-muted)] font-medium">
+            <span className="text-xs text-text-muted font-medium">
               {locale === 'te' ? 'విభాగం ఎంచుకోండి' : 'Select a category'}
             </span>
           </div>
@@ -237,7 +237,7 @@ export default function HomePage() {
                 className={cn(
                   'group rounded-2xl p-4 sm:p-5 flex flex-col items-center justify-center text-center text-decoration-none transition-all duration-200 border border-black/5 hover:-translate-y-1 hover:shadow-xl relative overflow-hidden',
                   isEmergency
-                    ? 'bg-gradient-to-br from-red-50 to-red-100 border-red-200 shadow-sm'
+                    ? 'bg-linear-to-br from-red-50 to-red-100 border-red-200 shadow-sm'
                     : 'shadow-md text-white'
                 )}
                 style={!isEmergency ? { background: gradient } : undefined}
@@ -277,17 +277,17 @@ export default function HomePage() {
           {/* LEFT 2 COLUMNS: LIVE ANNOUNCEMENTS & CROWD STATUS */}
           <div className="lg:col-span-2 space-y-6">
             {/* Live Announcements Card */}
-            <section className="bg-white rounded-2xl border border-[var(--color-border)] p-5 sm:p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4 pb-3 border-b border-[var(--color-border)]">
+            <section className="bg-white rounded-2xl border border-border p-5 sm:p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-red-50 text-[var(--color-primary)] flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-red-50 text-primary flex items-center justify-center">
                     <Bell size={18} aria-hidden />
                   </div>
                   <div>
-                    <h3 className="font-bold text-base text-[var(--color-text)]">
+                    <h3 className="font-bold text-base text-(--color-text)">
                       {t('announcements')}
                     </h3>
-                    <p className="text-xs text-[var(--color-text-muted)]">
+                    <p className="text-xs text-text-muted">
                       {locale === 'te' ? 'అధికారిక ఆలయ ప్రకటనలు' : 'Official Temple Control Room Broadcasts'}
                     </p>
                   </div>
@@ -295,7 +295,7 @@ export default function HomePage() {
                 {announcements && announcements.length > 4 && (
                   <Link
                     href="/announcements"
-                    className="text-xs text-[var(--color-primary)] hover:underline font-bold flex items-center gap-1"
+                    className="text-xs text-primary hover:underline font-bold flex items-center gap-1"
                   >
                     <span>{locale === 'te' ? 'అన్నీ చూడండి' : 'View All'}</span>
                     <ArrowRight size={13} />
@@ -310,7 +310,7 @@ export default function HomePage() {
                   ))}
                 </div>
               ) : regularAnnouncements.length === 0 ? (
-                <div className="text-center py-6 text-[var(--color-text-muted)] text-sm">
+                <div className="text-center py-6 text-text-muted text-sm">
                   {locale === 'te' ? 'ప్రస్తుతం కొత్త ప్రకటనలు లేవు.' : 'No active announcements at this moment.'}
                 </div>
               ) : (
@@ -343,9 +343,9 @@ export default function HomePage() {
             </section>
 
             {/* Ghat Road & Festival Advisory */}
-            <section className="bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 rounded-2xl border border-amber-200/80 p-5 sm:p-6">
+            <section className="bg-linear-to-r from-amber-50 via-orange-50 to-amber-50 rounded-2xl border border-amber-200/80 p-5 sm:p-6">
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-8 h-8 rounded-lg bg-amber-200/60 flex items-center justify-center text-amber-900 flex-shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-amber-200/60 flex items-center justify-center text-amber-900 shrink-0">
                   <Info size={16} aria-hidden />
                 </div>
                 <h3 className="font-bold text-base text-amber-950">
@@ -370,16 +370,16 @@ export default function HomePage() {
           {/* RIGHT COLUMN: QUICK LIVE MAP & EMERGENCY SOS WIDGET */}
           <div className="space-y-6">
             {/* Live Navigation CTA Card */}
-            <div className="bg-white rounded-2xl border border-[var(--color-border)] p-5 sm:p-6 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-border p-5 sm:p-6 shadow-sm overflow-hidden">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-800 flex items-center justify-center">
-                  <Compass size={22} className="text-[var(--color-primary)]" />
+                  <Compass size={22} className="text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-base text-[var(--color-text)]">
+                  <h3 className="font-bold text-base text-(--color-text)">
                     {locale === 'te' ? 'స్మార్ట్ నావిగేషన్ మ్యాప్' : 'Smart Navigation Map'}
                   </h3>
-                  <p className="text-xs text-[var(--color-text-muted)]">
+                  <p className="text-xs text-text-muted">
                     {locale === 'te' ? 'ఆలయ ప్రాంగణం & రూట్ మ్యాప్' : 'Turn-by-turn foot navigation'}
                   </p>
                 </div>

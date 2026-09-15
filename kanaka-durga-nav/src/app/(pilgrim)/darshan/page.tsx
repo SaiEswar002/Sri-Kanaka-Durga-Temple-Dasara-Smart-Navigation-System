@@ -51,7 +51,7 @@ export default function DarshanPage() {
 
         {isLoading && (
           <div className="flex justify-center p-16">
-            <LoadingSpinner size="lg" className="text-[var(--color-primary)]" />
+            <LoadingSpinner size="lg" className="text-primary" />
           </div>
         )}
 
@@ -104,7 +104,7 @@ function QueueCard({ queue, locale, t }: { queue: DarshanQueue; locale: string; 
         {/* Queue name + status */}
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>
-            <h2 className="font-bold text-base sm:text-lg text-[var(--color-text)]">
+            <h2 className="font-bold text-base sm:text-lg text-(--color-text)">
               {locale === 'te' ? queue.name_te : queue.name}
             </h2>
             <div className="flex items-center gap-2 mt-1.5">
@@ -120,23 +120,23 @@ function QueueCard({ queue, locale, t }: { queue: DarshanQueue; locale: string; 
 
         {/* Wait time + count */}
         <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="bg-[var(--color-surface-alt)] rounded-xl p-3.5 text-center border border-black/5">
-            <div className="flex items-center justify-center gap-1.5 text-[var(--color-text-muted)] mb-1">
+          <div className="bg-surface-alt rounded-xl p-3.5 text-center border border-black/5">
+            <div className="flex items-center justify-center gap-1.5 text-text-muted mb-1">
               <Clock size={15} aria-hidden />
               <span className="text-xs font-medium">{t('waitTime')}</span>
             </div>
-            <p className="text-2xl font-black text-[var(--color-primary)]">
+            <p className="text-2xl font-black text-primary">
               {queue.estimated_wait_minutes ?? '—'}
-              <span className="text-xs font-normal text-[var(--color-text-muted)] ml-1">{t('minutes')}</span>
+              <span className="text-xs font-normal text-text-muted ml-1">{t('minutes')}</span>
             </p>
           </div>
 
-          <div className="bg-[var(--color-surface-alt)] rounded-xl p-3.5 text-center border border-black/5">
-            <div className="flex items-center justify-center gap-1.5 text-[var(--color-text-muted)] mb-1">
+          <div className="bg-surface-alt rounded-xl p-3.5 text-center border border-black/5">
+            <div className="flex items-center justify-center gap-1.5 text-text-muted mb-1">
               <Users size={15} aria-hidden />
               <span className="text-xs font-medium">{t('currentCount')}</span>
             </div>
-            <p className="text-2xl font-black text-[var(--color-text)]">
+            <p className="text-2xl font-black text-(--color-text)">
               {queue.current_count.toLocaleString()}
             </p>
           </div>
@@ -145,7 +145,7 @@ function QueueCard({ queue, locale, t }: { queue: DarshanQueue; locale: string; 
         {/* Capacity bar */}
         {occupancyPct !== null && (
           <div className="mb-4 bg-gray-50 rounded-xl p-3 border border-gray-100">
-            <div className="flex justify-between text-xs font-semibold text-[var(--color-text-muted)] mb-1.5">
+            <div className="flex justify-between text-xs font-semibold text-text-muted mb-1.5">
               <span>{locale === 'te' ? 'క్యూ సామర్థ్యం' : 'Queue Occupancy'}</span>
               <span className={cn(
                 occupancyPct < 50 ? 'text-emerald-700' :
@@ -171,13 +171,13 @@ function QueueCard({ queue, locale, t }: { queue: DarshanQueue; locale: string; 
 
         {/* Notes */}
         {queue.notes && (
-          <p className="text-xs text-[var(--color-text-muted)] leading-relaxed bg-amber-50/50 p-2.5 rounded-lg border border-amber-100">
+          <p className="text-xs text-text-muted leading-relaxed bg-amber-50/50 p-2.5 rounded-lg border border-amber-100">
             {locale === 'te' ? queue.notes_te : queue.notes}
           </p>
         )}
       </div>
 
-      <div className="pt-4 border-t border-[var(--color-border)] mt-4">
+      <div className="pt-4 border-t border-border mt-4">
         <Link
           href={`/navigate?location=${queue.location_id || ''}`}
           className="btn btn-outline w-full text-xs font-bold py-2 flex items-center justify-center gap-1.5"

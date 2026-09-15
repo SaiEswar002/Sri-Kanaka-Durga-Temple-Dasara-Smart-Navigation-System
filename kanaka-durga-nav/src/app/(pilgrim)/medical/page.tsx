@@ -47,7 +47,7 @@ export default function MedicalPage() {
         {/* Emergency reminder banner */}
         <div className="bg-red-50 border border-red-200 rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-red-100 border border-red-200 flex items-center justify-center text-red-600 flex-shrink-0">
+            <div className="w-12 h-12 rounded-2xl bg-red-100 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
               <HeartPulse size={24} aria-hidden />
             </div>
             <div>
@@ -113,12 +113,12 @@ function MedicalCard({ point, locale, t }: { point: EmergencyPoint; locale: stri
     <div className="card p-5 hover:shadow-md transition-shadow flex flex-col justify-between h-full">
       <div>
         <div className="flex items-start gap-3 mb-3">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center flex-shrink-0 text-emerald-700 shadow-inner">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0 text-emerald-700 shadow-inner">
             <MedIcon size={22} aria-hidden />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <h2 className="font-bold text-base sm:text-lg text-[var(--color-text)]">
+              <h2 className="font-bold text-base sm:text-lg text-(--color-text)">
                 {locale === 'te' ? point.name_te : point.name}
               </h2>
               {point.is_24h && (
@@ -131,7 +131,7 @@ function MedicalCard({ point, locale, t }: { point: EmergencyPoint; locale: stri
               {t(`emergencyTypes.${point.emergency_type}`)}
             </p>
             {point.location?.address && (
-              <p className="text-xs text-[var(--color-text-muted)] mt-1.5 leading-relaxed">
+              <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
                 {point.location.address}
               </p>
             )}
@@ -139,7 +139,7 @@ function MedicalCard({ point, locale, t }: { point: EmergencyPoint; locale: stri
         </div>
       </div>
 
-      <div className="flex gap-2.5 pt-4 border-t border-[var(--color-border)] mt-3">
+      <div className="flex gap-2.5 pt-4 border-t border-border mt-3">
         {point.contact_phone && (
           <a
             href={`tel:${point.contact_phone}`}

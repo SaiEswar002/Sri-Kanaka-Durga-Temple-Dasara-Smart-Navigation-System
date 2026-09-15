@@ -54,7 +54,7 @@ export function ErrorState({ message = 'Something went wrong', onRetry, classNam
       <div className="w-16 h-16 rounded-full bg-red-50 border border-red-200 flex items-center justify-center text-red-500">
         <AlertTriangle size={28} aria-hidden />
       </div>
-      <p className="text-[var(--color-text-secondary)] text-sm max-w-xs">{message}</p>
+      <p className="text-text-secondary text-sm max-w-xs">{message}</p>
       {onRetry && (
         <button className="btn btn-outline btn-sm" onClick={onRetry}>
           Try Again
@@ -66,17 +66,19 @@ export function ErrorState({ message = 'Something went wrong', onRetry, classNam
 
 interface EmptyStateProps {
   message?: string;
-  icon?: string;
+  icon?: React.ElementType | string;
   className?: string;
 }
 
-export function EmptyState({ message = 'No data available', icon, className }: EmptyStateProps) {
+export function EmptyState({ message = 'No data available', icon: IconProp, className }: EmptyStateProps) {
+  const IconComponent = typeof IconProp === 'function' ? IconProp : Info;
+
   return (
     <div className={cn('flex flex-col items-center justify-center p-8 gap-3 text-center', className)}>
-      <div className="w-16 h-16 rounded-full bg-[var(--color-primary-subtle)] border border-[var(--color-primary-muted)] flex items-center justify-center text-[var(--color-primary)]">
-        <Info size={26} aria-hidden />
+      <div className="w-16 h-16 rounded-full bg-primary-subtle border border-(--color-primary-muted) flex items-center justify-center text-primary">
+        <IconComponent size={26} aria-hidden />
       </div>
-      <p className="text-[var(--color-text-muted)] text-sm">{message}</p>
+      <p className="text-text-muted text-sm">{message}</p>
     </div>
   );
 }
@@ -107,7 +109,7 @@ export function DemoBanner({ className }: DemoBannerProps) {
       'bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700 flex items-start gap-2',
       className
     )}>
-      <Info size={14} className="flex-shrink-0 mt-0.5 text-blue-600" aria-hidden />
+      <Info size={14} className="shrink-0 mt-0.5 text-blue-600" aria-hidden />
       <span>
         <strong>DEMO DATA</strong> — All locations, phone numbers, and capacities shown are
         illustrative placeholders. Real data will be provided by temple authorities.

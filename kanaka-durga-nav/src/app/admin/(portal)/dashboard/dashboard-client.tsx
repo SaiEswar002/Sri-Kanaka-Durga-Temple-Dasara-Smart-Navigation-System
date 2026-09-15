@@ -50,8 +50,8 @@ export function AdminDashboardClient({ sectors, announcements, incidents, closur
   return (
     <div className="space-y-6 max-w-6xl">
       <div>
-        <h1 className="text-2xl font-bold text-[var(--color-text)]">Dashboard</h1>
-        <p className="text-sm text-[var(--color-text-muted)] mt-1">
+        <h1 className="text-2xl font-bold text-(--color-text)">Dashboard</h1>
+        <p className="text-sm text-text-muted mt-1">
           Live overview — Sri Kanaka Durga Temple Dasara Operations
         </p>
       </div>
@@ -89,17 +89,17 @@ export function AdminDashboardClient({ sectors, announcements, incidents, closur
         {/* ===== CROWD STATUS ===== */}
         <section className="card p-5">
           <div className="flex items-center gap-2 mb-4">
-            <Users size={18} className="text-[var(--color-primary)]" aria-hidden />
+            <Users size={18} className="text-primary" aria-hidden />
             <h2 className="font-bold">Crowd Status by Sector</h2>
           </div>
           <div className="space-y-2">
             {sectors.length === 0 && (
-              <p className="text-sm text-[var(--color-text-muted)]">No sector data</p>
+              <p className="text-sm text-text-muted">No sector data</p>
             )}
             {sectors.map((sector) => {
               const config = CROWD_LEVEL_CONFIG[sector.crowd_level as CrowdLevel];
               return (
-                <div key={sector.id} className="flex items-center justify-between py-2 border-b border-[var(--color-border)] last:border-0">
+                <div key={sector.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                   <span className="text-sm font-medium truncate pr-3">{sector.name}</span>
                   <span className={cn('badge border text-xs', config.bg, config.color)}>
                     {config.label}
@@ -113,12 +113,12 @@ export function AdminDashboardClient({ sectors, announcements, incidents, closur
         {/* ===== PARKING STATUS ===== */}
         <section className="card p-5">
           <div className="flex items-center gap-2 mb-4">
-            <Car size={18} className="text-[var(--color-primary)]" aria-hidden />
+            <Car size={18} className="text-primary" aria-hidden />
             <h2 className="font-bold">Parking Status</h2>
           </div>
           <div className="space-y-2">
             {parkingStatus.length === 0 && (
-              <p className="text-sm text-[var(--color-text-muted)]">No parking data</p>
+              <p className="text-sm text-text-muted">No parking data</p>
             )}
             {parkingStatus.map((ps) => {
               const config = PARKING_STATUS_CONFIG[ps.status];
@@ -126,7 +126,7 @@ export function AdminDashboardClient({ sectors, announcements, incidents, closur
                 ? Math.round((ps.available / (ps.available + ps.occupied)) * 100)
                 : 0;
               return (
-                <div key={ps.id} className="py-2 border-b border-[var(--color-border)] last:border-0">
+                <div key={ps.id} className="py-2 border-b border-border last:border-0">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm font-medium">{ps.parking_area?.name ?? 'Unknown'}</span>
                     <span className={cn('text-xs font-semibold', config.color)}>{ps.status}</span>
@@ -138,7 +138,7 @@ export function AdminDashboardClient({ sectors, announcements, incidents, closur
                         style={{ width: `${pct}%` }}
                       />
                     </div>
-                    <span className="text-xs text-[var(--color-text-muted)] w-16 text-right">
+                    <span className="text-xs text-text-muted w-16 text-right">
                       {ps.available}/{ps.available + ps.occupied}
                     </span>
                   </div>
@@ -164,16 +164,16 @@ export function AdminDashboardClient({ sectors, announcements, incidents, closur
                 No active incidents
               </div>
             ) : incidents.slice(0, 5).map((incident) => (
-              <div key={incident.id} className="flex items-start gap-3 py-2 border-b border-[var(--color-border)] last:border-0">
+              <div key={incident.id} className="flex items-start gap-3 py-2 border-b border-border last:border-0">
                 <span className={cn(
-                  'badge border text-xs flex-shrink-0',
+                  'badge border text-xs shrink-0',
                   incident.status === 'OPEN' ? 'bg-red-100 text-red-700 border-red-200' : 'bg-amber-100 text-amber-700 border-amber-200'
                 )}>
                   {incident.status}
                 </span>
                 <div className="min-w-0">
                   <p className="text-sm font-medium truncate">{incident.title}</p>
-                  <p className="text-xs text-[var(--color-text-muted)]">
+                  <p className="text-xs text-text-muted">
                     {formatDistanceToNow(new Date(incident.created_at), { addSuffix: true })}
                   </p>
                 </div>
@@ -195,7 +195,7 @@ export function AdminDashboardClient({ sectors, announcements, incidents, closur
                 No active closures
               </div>
             ) : closures.map((closure) => (
-              <div key={closure.id} className="py-2 border-b border-[var(--color-border)] last:border-0">
+              <div key={closure.id} className="py-2 border-b border-border last:border-0">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium truncate pr-2">{closure.title}</p>
                   <span className={cn(
@@ -205,7 +205,7 @@ export function AdminDashboardClient({ sectors, announcements, incidents, closur
                     {closure.status}
                   </span>
                 </div>
-                <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                <p className="text-xs text-text-muted mt-0.5">
                   {closure.closure_type} · {formatDistanceToNow(new Date(closure.start_time), { addSuffix: true })}
                 </p>
               </div>
@@ -231,8 +231,8 @@ function SummaryCard({
       <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center mb-3', color)}>
         <Icon size={20} aria-hidden />
       </div>
-      <p className="text-3xl font-extrabold text-[var(--color-text)]">{value}</p>
-      <p className="text-sm text-[var(--color-text-muted)] mt-1">{label}</p>
+      <p className="text-3xl font-extrabold text-(--color-text)">{value}</p>
+      <p className="text-sm text-text-muted mt-1">{label}</p>
     </div>
   );
 }

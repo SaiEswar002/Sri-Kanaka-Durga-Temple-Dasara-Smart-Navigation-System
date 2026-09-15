@@ -23,7 +23,7 @@ export function LanguageToggle({ className, currentLocale }: LanguageToggleProps
         className={cn(
           'px-3 py-1 rounded-full text-sm font-semibold transition-all',
           currentLocale === 'en'
-            ? 'bg-white text-[var(--color-primary)]'
+            ? 'bg-white text-primary'
             : 'text-white/80 hover:text-white'
         )}
         aria-pressed={currentLocale === 'en'}
@@ -36,7 +36,7 @@ export function LanguageToggle({ className, currentLocale }: LanguageToggleProps
         className={cn(
           'px-3 py-1 rounded-full text-sm font-semibold transition-all',
           currentLocale === 'te'
-            ? 'bg-white text-[var(--color-primary)]'
+            ? 'bg-white text-primary'
             : 'text-white/80 hover:text-white'
         )}
         aria-pressed={currentLocale === 'te'}

@@ -41,7 +41,7 @@ export default function FoodPage() {
 
         {/* Annadanam advisory badge */}
         <div className="bg-orange-50/90 border border-orange-200 rounded-2xl p-4 sm:p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-orange-100 text-orange-700 flex items-center justify-center flex-shrink-0 shadow-inner border border-orange-200">
+          <div className="w-12 h-12 rounded-2xl bg-orange-100 text-orange-700 flex items-center justify-center shrink-0 shadow-inner border border-orange-200">
             <Utensils size={22} aria-hidden />
           </div>
           <div>
@@ -81,11 +81,11 @@ export default function FoodPage() {
             <div key={location.id} className="card p-5 hover:shadow-md transition-shadow flex flex-col justify-between h-full">
               <div>
                 <div className="flex items-start gap-3.5 mb-3">
-                  <div className="w-12 h-12 rounded-2xl bg-orange-50 border border-orange-100 flex items-center justify-center flex-shrink-0 text-orange-600 shadow-inner">
+                  <div className="w-12 h-12 rounded-2xl bg-orange-50 border border-orange-100 flex items-center justify-center shrink-0 text-orange-600 shadow-inner">
                     <Utensils size={22} aria-hidden />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-base sm:text-lg text-[var(--color-text)]">
+                    <h3 className="font-bold text-base sm:text-lg text-(--color-text)">
                       {locale === 'te' ? location.name_te : location.name}
                     </h3>
                     {location.operating_hours && (
@@ -98,20 +98,20 @@ export default function FoodPage() {
                 </div>
 
                 {location.description && (
-                  <p className="text-xs sm:text-sm text-[var(--color-text-muted)] leading-relaxed bg-orange-50/40 p-3 rounded-xl border border-orange-100/60 mb-4">
+                  <p className="text-xs sm:text-sm text-text-muted leading-relaxed bg-orange-50/40 p-3 rounded-xl border border-orange-100/60 mb-4">
                     {locale === 'te' ? location.description_te : location.description}
                   </p>
                 )}
 
                 {location.address && (
-                  <p className="text-xs text-[var(--color-text-muted)] mb-3 flex items-center gap-1.5">
-                    <MapPin size={11} className="flex-shrink-0" aria-hidden />
+                  <p className="text-xs text-text-muted mb-3 flex items-center gap-1.5">
+                    <MapPin size={11} className="shrink-0" aria-hidden />
                     <span>{location.address}</span>
                   </p>
                 )}
               </div>
 
-              <div className="pt-3 border-t border-[var(--color-border)] mt-2">
+              <div className="pt-3 border-t border-border mt-2">
                 <Link
                   href={`/navigate?location=${location.id}`}
                   className="btn btn-primary w-full text-xs font-bold py-2 flex items-center justify-center gap-1.5"

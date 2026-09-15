@@ -4,6 +4,12 @@ import { cookies } from 'next/headers';
 // Server-side Supabase client (Next.js App Router server components/actions)
 export async function createServerSupabaseClient() {
   const cookieStore = await cookies();
+  const isDemo = cookieStore.get('admin_demo')?.value === '1';
+
+  // In demo mode, use service role client if available so server components can query data without RLS blocking
+  if (isDemo && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return createServiceRoleClient();
+  }
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

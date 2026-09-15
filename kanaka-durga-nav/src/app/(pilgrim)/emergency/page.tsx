@@ -82,7 +82,7 @@ export default function EmergencyPage() {
         {/* Priority 112 Alert */}
         <div className="bg-red-50 border-2 border-red-300 rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-red-100 border border-red-200 flex items-center justify-center text-red-600 flex-shrink-0">
+            <div className="w-12 h-12 rounded-2xl bg-red-100 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
               <Siren size={26} aria-hidden />
             </div>
             <div>
@@ -106,7 +106,7 @@ export default function EmergencyPage() {
 
         {/* National emergency numbers: 4 Cards on Desktop */}
         <section aria-label="Emergency contact numbers">
-          <h2 className="text-sm font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-4">
+          <h2 className="text-sm font-bold text-text-muted uppercase tracking-wider mb-4">
             {locale === 'te' ? 'తక్షణ ఫోన్ నంబర్లు' : 'Direct Emergency Service Hotlines'}
           </h2>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -117,7 +117,7 @@ export default function EmergencyPage() {
                   key={contact.number}
                   href={`tel:${contact.number}`}
                   className={cn(
-                    'text-white rounded-2xl p-4 sm:p-5 flex flex-col justify-between min-h-[110px] sm:min-h-[130px] shadow-md hover:-translate-y-1 hover:shadow-xl transition-all text-decoration-none group',
+                    'text-white rounded-2xl p-4 sm:p-5 flex flex-col justify-between min-h-27.5 sm:min-h-32.5 shadow-md hover:-translate-y-1 hover:shadow-xl transition-all text-decoration-none group',
                     contact.color
                   )}
                   aria-label={`Call ${contact.label} ${contact.number}`}
@@ -145,11 +145,11 @@ export default function EmergencyPage() {
         {/* Nearest help on ground: Responsive Grid */}
         <section aria-label="Nearest help on ground">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base sm:text-lg font-bold text-[var(--color-text)] flex items-center gap-2">
+            <h2 className="text-base sm:text-lg font-bold text-(--color-text) flex items-center gap-2">
               <ShieldAlert size={20} className="text-red-600" />
               <span>{t('nearestHelp')}</span>
             </h2>
-            <span className="text-xs text-[var(--color-text-muted)]">
+            <span className="text-xs text-text-muted">
               {locale === 'te' ? 'ఆలయ పరిసరాల్లో సహాయ కేంద్రాలు' : 'On-ground aid posts & police help points'}
             </span>
           </div>
@@ -187,18 +187,18 @@ function NearestHelpCard({ point, locale, t }: { point: EmergencyPoint; locale: 
     <div className="card p-5 hover:shadow-md transition-shadow flex flex-col justify-between h-full">
       <div>
         <div className="flex items-start gap-3.5 mb-3">
-          <div className="w-12 h-12 rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center text-red-600 flex-shrink-0 shadow-inner">
+          <div className="w-12 h-12 rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center text-red-600 shrink-0 shadow-inner">
             <HelpIcon size={22} aria-hidden />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-base text-[var(--color-text)] leading-snug">
+            <h3 className="font-bold text-base text-(--color-text) leading-snug">
               {locale === 'te' ? point.name_te : point.name}
             </h3>
             <p className="text-xs text-red-700 font-semibold mt-0.5">
               {t(`emergencyTypes.${point.emergency_type}`)}
             </p>
             {point.location?.address && (
-              <p className="text-xs text-[var(--color-text-muted)] mt-1.5 leading-relaxed">
+              <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
                 {point.location.address}
               </p>
             )}
@@ -206,7 +206,7 @@ function NearestHelpCard({ point, locale, t }: { point: EmergencyPoint; locale: 
         </div>
       </div>
 
-      <div className="flex gap-2.5 pt-3 border-t border-[var(--color-border)] mt-2">
+      <div className="flex gap-2.5 pt-3 border-t border-border mt-2">
         {point.contact_phone && (
           <a
             href={`tel:${point.contact_phone}`}
