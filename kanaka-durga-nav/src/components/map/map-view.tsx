@@ -59,6 +59,9 @@ export function MapView({
     try {
       const maplibregl = await getMapLibre();
 
+      // Re-check after async import — component may have unmounted
+      if (!mapContainer.current || mapRef.current) return;
+
       const provider = getMapTileProvider();
       const { styleUrl } = provider.getStyle();
 
@@ -71,7 +74,7 @@ export function MapView({
       }
 
       const map = new maplibregl.Map({
-        container: mapContainer.current,
+        container: mapContainer.current!,
         style: style as string,
         center: [center.lng, center.lat],
         zoom,
