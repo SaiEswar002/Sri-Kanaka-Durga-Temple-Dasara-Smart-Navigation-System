@@ -19,6 +19,7 @@ CREATE TABLE sectors (
                   CHECK (crowd_level IN ('LOW', 'NORMAL', 'MEDIUM', 'HIGH', 'CRITICAL')),
   crowd_updated_at TIMESTAMPTZ,
   crowd_source  TEXT DEFAULT 'MANUAL',      -- 'MANUAL' | 'CAMERA' | 'SENSOR'
+  is_demo_data  BOOLEAN NOT NULL DEFAULT FALSE,
   metadata      JSONB NOT NULL DEFAULT '{}',
   display_order INTEGER NOT NULL DEFAULT 0,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -48,6 +49,7 @@ CREATE TABLE sub_sectors (
                   CHECK (crowd_level IN ('LOW', 'NORMAL', 'MEDIUM', 'HIGH', 'CRITICAL')),
   crowd_updated_at TIMESTAMPTZ,
   crowd_source  TEXT DEFAULT 'MANUAL',
+  is_demo_data  BOOLEAN NOT NULL DEFAULT FALSE,
   metadata      JSONB NOT NULL DEFAULT '{}',
   display_order INTEGER NOT NULL DEFAULT 0,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
