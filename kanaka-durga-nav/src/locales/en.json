@@ -127,6 +127,8 @@
   "emergency": {
     "title": "Emergency",
     "subtitle": "Need immediate help?",
+    "call": "Call",
+    "navigate": "Navigate",
     "callPolice": "Call Police",
     "callAmbulance": "Call Ambulance",
     "callFireService": "Call Fire Service",
@@ -137,7 +139,16 @@
     "nearestHelp": "Nearest Help",
     "sos": "SOS",
     "sosDescription": "Press and hold for emergency alert",
-    "disclaimer": "For life-threatening emergencies, call 112 immediately"
+    "disclaimer": "For life-threatening emergencies, call 112 immediately",
+    "emergencyTypes": {
+      "POLICE": "Police Post",
+      "MEDICAL": "Medical Aid Station",
+      "FIRST_AID": "First Aid Post",
+      "AMBULANCE": "Ambulance Unit",
+      "FIRE": "Fire Rescue Post",
+      "HELP_DESK": "Information Help Desk",
+      "SOS_BOOTH": "SOS Emergency Booth"
+    }
   },
   "announcements": {
     "title": "Announcements",

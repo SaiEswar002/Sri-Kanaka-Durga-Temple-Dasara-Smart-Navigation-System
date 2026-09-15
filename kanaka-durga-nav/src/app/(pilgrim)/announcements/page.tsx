@@ -54,7 +54,9 @@ function AnnouncementCard({ announcement: ann, locale, t }: { announcement: Anno
     >
       <div className="flex items-start gap-3">
         <span className={cn('badge border shrink-0 mt-0.5', pc.color)}>
-          {t(`priority.${ann.priority}`)}
+          {['INFO', 'NOTICE', 'WARNING', 'URGENT'].includes(ann.priority)
+            ? t(`priority.${ann.priority}` as 'priority.INFO')
+            : ann.priority}
         </span>
         <div className="flex-1 min-w-0">
           <h2 className={cn('font-bold text-sm leading-tight', isUrgent ? 'text-red-800' : 'text-(--color-text)')}>

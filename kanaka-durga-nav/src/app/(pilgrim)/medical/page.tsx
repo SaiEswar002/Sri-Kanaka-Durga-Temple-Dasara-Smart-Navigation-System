@@ -128,7 +128,9 @@ function MedicalCard({ point, locale, t }: { point: EmergencyPoint; locale: stri
               )}
             </div>
             <p className="text-xs font-semibold text-emerald-700">
-              {t(`emergencyTypes.${point.emergency_type}`)}
+              {['POLICE', 'MEDICAL', 'FIRST_AID', 'AMBULANCE', 'FIRE', 'HELP_DESK', 'SOS_BOOTH'].includes(point.emergency_type)
+                ? t(`emergencyTypes.${point.emergency_type}` as 'emergencyTypes.MEDICAL')
+                : (point.emergency_type || 'Medical Aid')}
             </p>
             {point.location?.address && (
               <p className="text-xs text-text-muted mt-1.5 leading-relaxed">

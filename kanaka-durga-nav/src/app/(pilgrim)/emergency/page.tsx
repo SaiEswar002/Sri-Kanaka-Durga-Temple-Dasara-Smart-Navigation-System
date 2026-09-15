@@ -195,7 +195,9 @@ function NearestHelpCard({ point, locale, t }: { point: EmergencyPoint; locale: 
               {locale === 'te' ? point.name_te : point.name}
             </h3>
             <p className="text-xs text-red-700 font-semibold mt-0.5">
-              {t(`emergencyTypes.${point.emergency_type}`)}
+              {['POLICE', 'MEDICAL', 'FIRST_AID', 'AMBULANCE', 'FIRE', 'HELP_DESK', 'SOS_BOOTH'].includes(point.emergency_type)
+                ? t(`emergencyTypes.${point.emergency_type}` as 'emergencyTypes.POLICE')
+                : (point.emergency_type || 'Help Desk')}
             </p>
             {point.location?.address && (
               <p className="text-xs text-text-muted mt-1.5 leading-relaxed">

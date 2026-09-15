@@ -109,10 +109,14 @@ function QueueCard({ queue, locale, t }: { queue: DarshanQueue; locale: string; 
             </h2>
             <div className="flex items-center gap-2 mt-1.5">
               <span className={cn('badge border text-xs font-semibold px-2.5 py-0.5', statusColor)}>
-                {t(`status.${queue.status}`)}
+                {['OPEN', 'CLOSED', 'SUSPENDED', 'FULL'].includes(queue.status)
+                  ? t(`status.${queue.status}` as 'status.OPEN')
+                  : queue.status}
               </span>
               <span className="badge bg-amber-50 text-amber-900 border border-amber-200 text-xs font-semibold">
-                {t(`queueType.${queue.queue_type}`)}
+                {['GENERAL', 'SPECIAL', 'VIP', 'DIVYANG', 'SEVAS'].includes(queue.queue_type)
+                  ? t(`queueType.${queue.queue_type}` as 'queueType.GENERAL')
+                  : queue.queue_type}
               </span>
             </div>
           </div>
