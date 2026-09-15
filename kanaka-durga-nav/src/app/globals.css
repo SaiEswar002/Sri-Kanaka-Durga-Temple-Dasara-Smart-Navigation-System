@@ -350,14 +350,6 @@ body {
   position: relative;
 }
 
-@media (max-width: 767px) {
-  .pilgrim-shell {
-    max-width: 560px;
-    margin: 0 auto;
-    box-shadow: 0 0 40px rgba(26, 10, 12, 0.08);
-  }
-}
-
 .pilgrim-content {
   flex: 1;
   overflow-y: auto;
@@ -367,18 +359,17 @@ body {
 
 @media (min-width: 768px) {
   .pilgrim-content {
-    padding-bottom: 2rem; /* no bottom nav on laptop view */
+    padding-bottom: 0; /* no bottom nav on desktop */
   }
 }
 
-/* --- Bottom Navigation --- */
+/* --- Bottom Navigation (mobile only) --- */
 .bottom-nav {
   position: fixed;
   bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
   width: 100%;
-  max-width: 560px;
   background: var(--color-surface);
   border-top: 1px solid var(--color-border);
   padding: 0.5rem 0;

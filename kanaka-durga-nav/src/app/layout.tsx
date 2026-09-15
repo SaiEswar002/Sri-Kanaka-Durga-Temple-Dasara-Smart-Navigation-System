@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
+import Script from 'next/script';
 import './globals.css';
 import { Providers } from './providers';
 
@@ -57,8 +58,10 @@ export default async function RootLayout({
           </Providers>
         </NextIntlClientProvider>
 
-        {/* Service worker registration */}
-        <script
+        {/* Service worker registration — must use next/script to avoid hydration errors */}
+        <Script
+          id="sw-register"
+          strategy="afterInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {
