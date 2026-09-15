@@ -73,7 +73,11 @@ export default function ParkingPage() {
 
 function ParkingCard({ area, locale, t }: { area: ParkingArea; locale: string; t: ReturnType<typeof useTranslations> }) {
   const status = area.current_status;
-  const statusConfig = status ? PARKING_STATUS_CONFIG[status.status] : PARKING_STATUS_CONFIG.UNKNOWN;
+  // Safe lookup — DB may return an unrecognized status value; always fall back to UNKNOWN
+  const safeStatus = (status?.status && status.status in PARKING_STATUS_CONFIG)
+    ? status.status as keyof typeof PARKING_STATUS_CONFIG
+    : 'UNKNOWN';
+  const statusConfig = PARKING_STATUS_CONFIG[safeStatus];
   const availablePct = area.total_capacity > 0 && status
     ? Math.round((status.available / area.total_capacity) * 100)
     : null;
@@ -90,12 +94,15 @@ function ParkingCard({ area, locale, t }: { area: ParkingArea; locale: string; t
               {t(`type.${area.parking_type}`)} · <span className="text-gray-700">{area.vehicle_types.join(' · ')}</span>
             </p>
           </div>
-          <span className={cn('badge border text-xs font-semibold px-2.5 py-0.5', statusConfig.color,
-            status?.status === 'AVAILABLE' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
-            status?.status === 'FILLING' ? 'bg-amber-50 border-amber-200 text-amber-800' :
-            status?.status === 'FULL' ? 'bg-red-50 border-red-200 text-red-800' : 'bg-gray-50 border-gray-200 text-gray-700'
+          <span className={cn(
+            'badge border text-xs font-semibold px-2.5 py-0.5',
+            safeStatus === 'AVAILABLE' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
+            safeStatus === 'FILLING'   ? 'bg-amber-50 border-amber-200 text-amber-800' :
+            safeStatus === 'FULL'      ? 'bg-red-50 border-red-200 text-red-800' :
+            safeStatus === 'CLOSED'    ? 'bg-gray-100 border-gray-200 text-gray-700' :
+                                         'bg-gray-50 border-gray-200 text-gray-500'
           )}>
-            {status ? t(`status.${status.status}`) : t('status.UNKNOWN')}
+            {status ? t(`status.${safeStatus}`) : t('status.UNKNOWN')}
           </span>
         </div>
 
