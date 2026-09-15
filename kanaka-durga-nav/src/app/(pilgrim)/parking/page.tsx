@@ -73,10 +73,12 @@ export default function ParkingPage() {
 
 function ParkingCard({ area, locale, t }: { area: ParkingArea; locale: string; t: ReturnType<typeof useTranslations> }) {
   const status = area.current_status;
-  // Safe lookup — DB may return an unrecognized status value; always fall back to UNKNOWN
-  const safeStatus = (status?.status && status.status in PARKING_STATUS_CONFIG)
-    ? status.status as keyof typeof PARKING_STATUS_CONFIG
-    : 'UNKNOWN';
+  // Safe lookup — DB may return null/undefined status; always fall back to UNKNOWN
+  const rawStatus = status?.status;
+  const safeStatus: keyof typeof PARKING_STATUS_CONFIG =
+    (typeof rawStatus === 'string' && rawStatus in PARKING_STATUS_CONFIG)
+      ? rawStatus as keyof typeof PARKING_STATUS_CONFIG
+      : 'UNKNOWN';
   const statusConfig = PARKING_STATUS_CONFIG[safeStatus];
   const availablePct = area.total_capacity > 0 && status
     ? Math.round((status.available / area.total_capacity) * 100)

@@ -25,6 +25,15 @@ interface MapProps {
 const DEFAULT_CENTER: LngLat = { lng: 80.6238, lat: 16.5145 };
 const DEFAULT_ZOOM = 15;
 
+// Cache the maplibre-gl module so we only import it once
+let maplibrePromise: Promise<typeof import('maplibre-gl')> | null = null;
+function getMapLibre() {
+  if (!maplibrePromise) {
+    maplibrePromise = import('maplibre-gl');
+  }
+  return maplibrePromise;
+}
+
 export function MapView({
   center = DEFAULT_CENTER,
   zoom = DEFAULT_ZOOM,
@@ -48,8 +57,7 @@ export function MapView({
     if (!mapContainer.current || mapRef.current) return;
 
     try {
-      // Lazy-load MapLibre GL
-      const maplibregl = await import('maplibre-gl');
+      const maplibregl = await getMapLibre();
 
       const provider = getMapTileProvider();
       const { styleUrl } = provider.getStyle();
@@ -68,6 +76,7 @@ export function MapView({
         center: [center.lng, center.lat],
         zoom,
         interactive,
+        attributionControl: false,
       });
 
       mapRef.current = map;
@@ -83,7 +92,15 @@ export function MapView({
         setIsLoading(false);
       });
 
+      // Timeout fallback — if map doesn't load in 10s, show error
+      const timeout = setTimeout(() => {
+        if (isLoading) {
+          setIsLoading(false);
+        }
+      }, 10000);
+
       return () => {
+        clearTimeout(timeout);
         map.remove();
         mapRef.current = null;
       };
@@ -107,7 +124,7 @@ export function MapView({
     const updateUserMarker = async () => {
       const map = mapRef.current;
       if (!map) return;
-      const maplibregl = await import('maplibre-gl');
+      const maplibregl = await getMapLibre();
 
       // Remove existing user marker
       const existing = document.getElementById('user-location-marker');
@@ -148,7 +165,7 @@ export function MapView({
     const renderMarkers = async () => {
       const map = mapRef.current;
       if (!map) return;
-      const maplibregl = await import('maplibre-gl');
+      const maplibregl = await getMapLibre();
 
       // Clear old markers
       markersRef.current.forEach((m) => m.remove());
@@ -189,7 +206,6 @@ export function MapView({
     const renderRoute = async () => {
       const map = mapRef.current;
       if (!map) return;
-      const maplibregl = await import('maplibre-gl');
 
       // Wait for map to be loaded
       if (!map.isStyleLoaded()) {
@@ -226,6 +242,7 @@ export function MapView({
       });
 
       // Fit map to route
+      const maplibregl = await getMapLibre();
       const coords = route.coordinates;
       if (coords.length > 1) {
         const bounds = coords.reduce(
@@ -242,8 +259,13 @@ export function MapView({
     return (
       <div className={cn('flex items-center justify-center bg-gray-50 rounded-lg', className)}>
         <div className="text-center p-4">
-          <div className="text-2xl mb-2">🗺️</div>
           <p className="text-sm text-gray-600">{error}</p>
+          <button
+            className="btn btn-outline btn-sm mt-3"
+            onClick={() => { setError(null); setIsLoading(true); mapRef.current = null; initMap(); }}
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -252,10 +274,10 @@ export function MapView({
   return (
     <div className={cn('relative overflow-hidden', className)}>
       {isLoading && (
-        <div className="absolute inset-0 bg-gray-100 animate-pulse flex items-center justify-center z-10">
+        <div className="absolute inset-0 bg-gray-100 flex items-center justify-center z-10">
           <div className="text-center">
-            <div className="text-3xl mb-2">🗺️</div>
-            <p className="text-sm text-gray-500">Loading map...</p>
+            <div className="w-10 h-10 border-3 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-sm text-gray-500 font-medium">Loading map...</p>
           </div>
         </div>
       )}
