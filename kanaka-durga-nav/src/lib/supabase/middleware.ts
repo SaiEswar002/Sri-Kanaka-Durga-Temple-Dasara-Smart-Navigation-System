@@ -4,6 +4,11 @@ import { NextResponse, type NextRequest } from 'next/server';
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
+  // ── DEMO MODE BYPASS ─────────────────────────────────────────────────────
+  // Allow unauthenticated access to /admin when demo cookie is set.
+  // The cookie is set by the "Enter Demo Dashboard" button on the login page.
+  const isDemo = request.cookies.get('admin_demo')?.value === '1';
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -30,6 +35,11 @@ export async function updateSession(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith('/admin')) {
     // Allow the login page always
     if (request.nextUrl.pathname === '/admin/login') {
+      return supabaseResponse;
+    }
+
+    // Allow demo mode — no real auth needed for read-only dashboard preview
+    if (isDemo) {
       return supabaseResponse;
     }
 
