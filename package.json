@@ -1,0 +1,12 @@
+{
+  "name": "sri-kanaka-durga-temple-dasara-smart-navigation-system",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sri Kanaka Durga Temple Dasara Smart Navigation System",
+  "scripts": {
+    "dev": "npm --prefix kanaka-durga-nav run dev",
+    "build": "npm --prefix kanaka-durga-nav run build",
+    "start": "npm --prefix kanaka-durga-nav run start",
+    "lint": "npm --prefix kanaka-durga-nav run lint"
+  }
+}
