@@ -1,23 +1,29 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Home, Eye, Car, Plus, Utensils, Bus, AlertTriangle } from 'lucide-react';
+import { Home, Eye, Car, Plus, Bus, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
-  { href: '/',           icon: Home,         labelKey: 'home'      },
-  { href: '/darshan',    icon: Eye,          labelKey: 'darshan'   },
-  { href: '/parking',    icon: Car,          labelKey: 'parking'   },
-  { href: '/medical',    icon: Plus,         labelKey: 'medical'   },
-  { href: '/bus',        icon: Bus,          labelKey: 'bus'       },
+  { href: '/',           icon: Home,          labelKey: 'home'      },
+  { href: '/darshan',    icon: Eye,           labelKey: 'darshan'   },
+  { href: '/parking',    icon: Car,           labelKey: 'parking'   },
+  { href: '/medical',    icon: Plus,          labelKey: 'medical'   },
+  { href: '/bus',        icon: Bus,           labelKey: 'bus'       },
   { href: '/emergency',  icon: AlertTriangle, labelKey: 'emergency' },
 ] as const;
 
 export function PilgrimBottomNav() {
   const pathname = usePathname();
   const t = useTranslations('nav');
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  // Don't render until client-side to prevent hydration mismatch
+  if (!mounted) return null;
 
   return (
     <nav className="bottom-nav" role="navigation" aria-label="Main navigation">
