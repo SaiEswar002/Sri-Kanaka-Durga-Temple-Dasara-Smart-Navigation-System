@@ -105,8 +105,9 @@ html {
 
 body {
   margin: 0;
-  min-height: 100dvh;
+  min-height: 100vh;
   overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* Prevent tap highlight on mobile */
@@ -344,22 +345,21 @@ body {
 .pilgrim-shell {
   display: flex;
   flex-direction: column;
-  min-height: 100dvh;
+  min-height: 100vh;
   background: var(--color-background);
   width: 100%;
-  position: relative;
 }
 
+/* pilgrim-content: natural block flow — browser window scrolls, NOT a container */
 .pilgrim-content {
   flex: 1;
-  overflow-y: auto;
+  width: 100%;
   padding-bottom: 80px; /* space for mobile bottom nav */
-  overscroll-behavior: contain;
 }
 
 @media (min-width: 768px) {
   .pilgrim-content {
-    padding-bottom: 0; /* no bottom nav on desktop */
+    padding-bottom: 0; /* desktop has top header, no bottom nav */
   }
 }
 
