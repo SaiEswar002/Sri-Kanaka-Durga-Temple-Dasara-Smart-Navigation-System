@@ -1,16 +1,21 @@
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { AdminSidebar } from '@/components/admin/admin-sidebar';
 import type { ReactNode } from 'react';
 
 export default async function AdminPortalLayout({ children }: { children: ReactNode }) {
+  // Demo mode bypass — matches middleware cookie check
+  const cookieStore = await cookies();
+  const isDemo = cookieStore.get('admin_demo')?.value === '1';
+
   const isDevPlaceholder =
     process.env.NODE_ENV === 'development' &&
     (!process.env.NEXT_PUBLIC_SUPABASE_URL ||
       process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder'));
 
-  // If not in dev placeholder mode, perform strict Supabase Auth & Role checks
-  if (!isDevPlaceholder) {
+  // Skip auth for demo mode or dev placeholder
+  if (!isDemo && !isDevPlaceholder) {
     const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
 
