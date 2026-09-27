@@ -1,13 +1,19 @@
-﻿import type { Metadata } from 'next';
-export const metadata: Metadata = { title: 'Live Map — Admin' };
+import type { Metadata } from 'next';
+import { AdminMapClient } from './admin-map-client';
+
+export const metadata: Metadata = { title: 'Live Map — Temple Command Center' };
+
 export default function AdminMapPage() {
   return (
-    <div>
-      <h1 className='text-2xl font-bold mb-2'>Live Map</h1>
-      <p className='text-sm text-gray-500 mb-6'>All sectors, sub-sectors, locations, crowd levels, closures, and parking on one map.</p>
-      <div className='card' style={{ height: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f3f0', fontSize: 14, color: '#8a6070' }}>
-        🗺️ MapLibre admin map — connect map tile provider and Supabase to activate
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">Temple Command Center Live Map</h1>
+        <p className="text-xs sm:text-sm text-gray-500">
+          Real-time GIS map of all sectors, ghat roads, darshan queue complexes, parking hubs, and emergency SOS posts.
+        </p>
       </div>
+
+      <AdminMapClient />
     </div>
   );
 }

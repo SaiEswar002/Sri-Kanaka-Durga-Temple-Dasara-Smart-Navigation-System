@@ -340,7 +340,8 @@ export interface NavigationStep {
   distance_meters: number;
   duration_seconds: number;
   coordinate: [number, number];
-  maneuver: 'straight' | 'turn-left' | 'turn-right' | 'arrive' | 'depart' | 'continue';
+  /** OSRM maneuver type string (depart, turn, arrive, etc.) */
+  maneuver: string;
 }
 
 export interface UserLocation {
@@ -348,6 +349,10 @@ export interface UserLocation {
   lng: number;
   accuracy: number;
   timestamp: number;
+  /** Speed in m/s from GPS (may be null) */
+  speed?: number | null;
+  /** Compass heading in degrees (0=North) from GPS (may be null) */
+  heading?: number | null;
 }
 
 export type LocationPermissionState = 'prompt' | 'granted' | 'denied' | 'unavailable' | 'timeout';

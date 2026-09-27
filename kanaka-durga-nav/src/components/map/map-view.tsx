@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { Map as MapInstance, Marker as MarkerInstance } from 'maplibre-gl';
+import type * as LeafletType from 'leaflet';
 import type { LngLat, NavigationRoute, Location } from '@/types';
 import { getMapTileProvider } from '@/services/map/tile-provider';
 import { cn } from '@/lib/utils';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import 'leaflet/dist/leaflet.css';
 
 interface MapProps {
   center?: LngLat;
@@ -21,24 +21,44 @@ interface MapProps {
   onMapReady?: () => void;
 }
 
-// Default center: Vijayawada, India (near temple)
-const DEFAULT_CENTER: LngLat = { lng: 80.6238, lat: 16.5145 };
+// Default center: Indrakeeladri Hill / Sri Kanaka Durga Temple, Vijayawada
+const DEFAULT_CENTER: LngLat = { lng: 80.6238, lat: 16.5148 };
 const DEFAULT_ZOOM = 15;
 
-// Cache the maplibre-gl module so we only import it once
-let maplibrePromise: Promise<typeof import('maplibre-gl')> | null = null;
-function getMapLibre() {
-  if (!maplibrePromise) {
-    maplibrePromise = import('maplibre-gl');
+// Cache leaflet dynamic import
+let leafletPromise: Promise<typeof import('leaflet')> | null = null;
+function getLeaflet() {
+  if (!leafletPromise) {
+    leafletPromise = import('leaflet');
   }
-  return maplibrePromise;
+  return leafletPromise;
+}
+
+// Category color and icon mapper
+function getCategoryInfo(categorySlug?: string): { bg: string; icon: string } {
+  switch (categorySlug) {
+    case 'darshan':
+      return { bg: '#9b1b30', icon: '🛕' };
+    case 'parking':
+      return { bg: '#2563eb', icon: '🅿️' };
+    case 'food':
+      return { bg: '#ea580c', icon: '🍲' };
+    case 'medical':
+      return { bg: '#dc2626', icon: '➕' };
+    case 'bus':
+      return { bg: '#059669', icon: '🚌' };
+    case 'ghat':
+      return { bg: '#0284c7', icon: '🌊' };
+    default:
+      return { bg: '#7a1425', icon: '📍' };
+  }
 }
 
 export function MapView({
   center = DEFAULT_CENTER,
   zoom = DEFAULT_ZOOM,
   userLocation,
-  destination: _destination,
+  destination,
   destinations = [],
   route,
   className,
@@ -48,226 +68,394 @@ export function MapView({
   onMapReady,
 }: MapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<MapInstance | null>(null);
+  const mapRef = useRef<LeafletType.Map | null>(null);
+  const [mapReady, setMapReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const markersRef = useRef<MarkerInstance[]>([]);
 
-  const initMap = useCallback(async () => {
-    if (!mapContainer.current || mapRef.current) return;
+  // Layer groups and markers
+  const userMarkerRef = useRef<LeafletType.Marker | null>(null);
+  const destMarkerRef = useRef<LeafletType.Marker | null>(null);
+  const markersGroupRef = useRef<LeafletType.LayerGroup | null>(null);
+  const routeGroupRef = useRef<LeafletType.LayerGroup | null>(null);
 
+  // Safe helper to check if map is valid and ready
+  const isMapAlive = useCallback((): boolean => {
+    const map = mapRef.current;
+    if (!map) return false;
     try {
-      const maplibregl = await getMapLibre();
+      const container = map.getContainer();
+      return !!(container && container.isConnected && (map as unknown as { _loaded?: boolean })._loaded);
+    } catch {
+      return false;
+    }
+  }, []);
 
-      // Re-check after async import — component may have unmounted
-      if (!mapContainer.current || mapRef.current) return;
+  // 1. Initialize Map once
+  useEffect(() => {
+    let isMounted = true;
 
-      const provider = getMapTileProvider();
-      const { styleUrl } = provider.getStyle();
+    async function init() {
+      if (!mapContainer.current) return;
+      const container = mapContainer.current;
 
-      // Handle inline style object (for OSM fallback)
-      let style: string | object;
-      try {
-        style = JSON.parse(styleUrl);
-      } catch {
-        style = styleUrl;
+      // Clean up previous instance if container is dirty
+      if ((container as unknown as { _leaflet_id?: number })._leaflet_id) {
+        delete (container as unknown as { _leaflet_id?: number })._leaflet_id;
       }
 
-      const map = new maplibregl.Map({
-        container: mapContainer.current!,
-        style: style as string,
-        center: [center.lng, center.lat],
-        zoom,
-        interactive,
-        attributionControl: false,
-      });
+      try {
+        const L = await getLeaflet();
+        if (!isMounted || !mapContainer.current) return;
 
-      mapRef.current = map;
+        // Create Leaflet map with zoom animations disabled to prevent _leaflet_pos runtime errors
+        const map = L.map(mapContainer.current, {
+          center: [center.lat, center.lng],
+          zoom,
+          zoomControl: false,
+          attributionControl: false,
+          zoomAnimation: false,
+          fadeAnimation: false,
+          markerZoomAnimation: false,
+          dragging: interactive,
+          scrollWheelZoom: interactive,
+          touchZoom: interactive,
+          doubleClickZoom: interactive,
+        });
 
-      map.on('load', () => {
-        setIsLoading(false);
-        onMapReady?.();
-      });
+        mapRef.current = map;
 
-      map.on('error', (e: unknown) => {
-        console.error('[Map] Error:', e);
-        setError('Map failed to load. Please check your connection.');
-        setIsLoading(false);
-      });
+        // Custom Zoom Control at bottom right
+        if (interactive) {
+          L.control.zoom({ position: 'bottomright' }).addTo(map);
+        }
 
-      // Timeout fallback — if map doesn't load in 10s, show error
-      const timeout = setTimeout(() => {
-        if (isLoading) {
+        // Attribution
+        L.control.attribution({ position: 'bottomleft', prefix: false }).addTo(map);
+
+        // Add Tile Layer
+        const provider = getMapTileProvider();
+        const tileConfig = provider.getTileConfig();
+
+        const tiles = L.tileLayer(tileConfig.url, {
+          attribution: tileConfig.attribution,
+          subdomains: tileConfig.subdomains ?? ['a', 'b', 'c', 'd'],
+          maxZoom: tileConfig.maxZoom ?? 20,
+          tileSize: tileConfig.tileSize ?? 256,
+        });
+
+        tiles.addTo(map);
+
+        // Marker & Route layer groups
+        markersGroupRef.current = L.layerGroup().addTo(map);
+        routeGroupRef.current = L.layerGroup().addTo(map);
+
+        // Mark ready when map is initialized
+        let loadingCleared = false;
+        const clearLoading = () => {
+          if (!loadingCleared && isMounted) {
+            loadingCleared = true;
+            setMapReady(true);
+            setIsLoading(false);
+            onMapReady?.();
+          }
+        };
+
+        map.whenReady(clearLoading);
+
+        // Also clear loading on first tile (so user sees map immediately)
+        tiles.once('tileload', clearLoading);
+
+        // Safety fallback: clear loading after 4 seconds regardless
+        const loadTimeout = setTimeout(clearLoading, 4000);
+
+        // Watch for container resizes
+        const resizeObserver = new ResizeObserver(() => {
+          if (isMapAlive()) {
+            map.invalidateSize();
+          }
+        });
+        resizeObserver.observe(container);
+
+        return () => {
+          clearTimeout(loadTimeout);
+          resizeObserver.disconnect();
+        };
+      } catch (err) {
+        console.error('[MapView] Leaflet initialization error:', err);
+        if (isMounted) {
+          setError('Map could not be loaded. Please reload.');
           setIsLoading(false);
         }
-      }, 10000);
-
-      return () => {
-        clearTimeout(timeout);
-        map.remove();
-        mapRef.current = null;
-      };
-    } catch (err) {
-      console.error('[Map] Failed to initialize:', err);
-      setError('Map could not be loaded.');
-      setIsLoading(false);
+      }
     }
-  }, [center.lat, center.lng, interactive, onMapReady, zoom]);
 
-  useEffect(() => {
-    const cleanup = initMap();
+    init();
+
     return () => {
-      cleanup?.then((fn) => fn?.());
+      isMounted = false;
+      setMapReady(false);
+      if (mapRef.current) {
+        const map = mapRef.current;
+        mapRef.current = null;
+        try {
+          map.stop();
+          map.remove();
+        } catch {
+          // Ignore cleanup errors during unmount
+        }
+      }
     };
-  }, [initMap]);
+  }, []); // Run on mount only
 
-  // Update user location marker
+  // 2. Center / Zoom prop updates (safe setView without flyTo matrix crash)
   useEffect(() => {
-    if (!mapRef.current || !userLocation) return;
-    const updateUserMarker = async () => {
-      const map = mapRef.current;
-      if (!map) return;
-      const maplibregl = await getMapLibre();
+    if (!mapReady || !isMapAlive()) return;
+    const map = mapRef.current;
+    if (!map) return;
 
-      // Remove existing user marker
-      const existing = document.getElementById('user-location-marker');
-      if (existing) existing.remove();
+    try {
+      map.setView([center.lat, center.lng], zoom, { animate: false });
+    } catch (e) {
+      console.warn('[MapView] Center update error:', e);
+    }
+  }, [center.lat, center.lng, zoom, mapReady, isMapAlive]);
 
-      const el = document.createElement('div');
-      el.id = 'user-location-marker';
-      el.className = 'user-location-marker';
-      el.style.cssText = `
-        width: 20px; height: 20px;
-        background: #2563eb; border: 3px solid white;
-        border-radius: 50%; box-shadow: 0 2px 8px rgba(37,99,235,0.5);
-        position: relative;
-      `;
-
-      // Pulse ring
-      const pulse = document.createElement('div');
-      pulse.style.cssText = `
-        position: absolute; inset: -8px;
-        border: 2px solid rgba(37,99,235,0.4);
-        border-radius: 50%;
-        animation: pulse-location 2s ease-out infinite;
-      `;
-      el.appendChild(pulse);
-
-      new maplibregl.Marker({ element: el })
-        .setLngLat([userLocation.lng, userLocation.lat])
-        .addTo(map);
-
-      map.easeTo({ center: [userLocation.lng, userLocation.lat] });
-    };
-    updateUserMarker();
-  }, [userLocation]);
-
-  // Render destination markers
+  // 3. User Location Marker
   useEffect(() => {
-    if (!mapRef.current) return;
-    const renderMarkers = async () => {
-      const map = mapRef.current;
-      if (!map) return;
-      const maplibregl = await getMapLibre();
+    if (!mapReady || !isMapAlive()) return;
 
-      // Clear old markers
-      markersRef.current.forEach((m) => m.remove());
-      markersRef.current = [];
+    async function updateUser() {
+      const map = mapRef.current;
+      if (!map || !isMapAlive()) return;
+      const L = await getLeaflet();
+      if (!mapRef.current) return;
+
+      if (!userLocation) {
+        if (userMarkerRef.current) {
+          userMarkerRef.current.remove();
+          userMarkerRef.current = null;
+        }
+        return;
+      }
+
+      const pulseIcon = L.divIcon({
+        className: 'user-pulse-icon-wrapper',
+        html: `
+          <div class="user-pulse-marker">
+            <div class="pulse-ring"></div>
+            <div class="pulse-core"></div>
+          </div>
+        `,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+      });
+
+      if (!userMarkerRef.current) {
+        userMarkerRef.current = L.marker([userLocation.lat, userLocation.lng], {
+          icon: pulseIcon,
+          zIndexOffset: 1000,
+        }).addTo(map);
+      } else {
+        userMarkerRef.current.setLatLng([userLocation.lat, userLocation.lng]);
+      }
+    }
+
+    updateUser();
+  }, [userLocation, mapReady, isMapAlive]);
+
+  // 4. Destination Marker & Auto-framing
+  useEffect(() => {
+    if (!mapReady || !isMapAlive()) return;
+
+    async function updateDestination() {
+      const map = mapRef.current;
+      if (!map || !isMapAlive()) return;
+      const L = await getLeaflet();
+      if (!mapRef.current) return;
+
+      if (!destination) {
+        if (destMarkerRef.current) {
+          destMarkerRef.current.remove();
+          destMarkerRef.current = null;
+        }
+        return;
+      }
+
+      const destIcon = L.divIcon({
+        className: 'dest-pin-wrapper',
+        html: `
+          <div class="dest-pin-marker">
+            <div class="dest-pin-badge">🛕</div>
+            <div class="dest-pin-point"></div>
+          </div>
+        `,
+        iconSize: [38, 44],
+        iconAnchor: [19, 44],
+      });
+
+      if (!destMarkerRef.current) {
+        destMarkerRef.current = L.marker([destination.lat, destination.lng], {
+          icon: destIcon,
+          zIndexOffset: 950,
+        }).addTo(map);
+      } else {
+        destMarkerRef.current.setLatLng([destination.lat, destination.lng]);
+      }
+
+      // If no route polyline is currently active, fit or center without crashing
+      if (!route) {
+        try {
+          if (userLocation) {
+            const bounds = L.latLngBounds(
+              [userLocation.lat, userLocation.lng],
+              [destination.lat, destination.lng]
+            );
+            map.fitBounds(bounds, { padding: [60, 60], maxZoom: 17, animate: false });
+          } else {
+            map.setView([destination.lat, destination.lng], 16, { animate: false });
+          }
+        } catch {}
+      }
+    }
+
+    updateDestination();
+  }, [destination, route, userLocation, mapReady, isMapAlive]);
+
+  // 5. Render Facility Destinations
+  useEffect(() => {
+    if (!mapReady || !isMapAlive()) return;
+    const group = markersGroupRef.current;
+    if (!group) return;
+
+    async function renderDestinations() {
+      const L = await getLeaflet();
+      if (!isMapAlive() || !group) return;
+
+      group.clearLayers();
 
       destinations.forEach((loc) => {
         if (!loc.position?.coordinates) return;
         const [lng, lat] = loc.position.coordinates;
 
-        const el = document.createElement('button');
-        el.setAttribute('aria-label', loc.name);
-        el.style.cssText = `
-          background: ${loc.category?.color ?? '#9b1b30'};
-          width: 36px; height: 36px; border-radius: 50% 50% 50% 0;
-          transform: rotate(-45deg); border: 2px solid white;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.3); cursor: pointer;
-          transition: transform 0.15s ease;
-        `;
-        el.addEventListener('mouseenter', () => { el.style.transform = 'rotate(-45deg) scale(1.1)'; });
-        el.addEventListener('mouseleave', () => { el.style.transform = 'rotate(-45deg)'; });
-        if (onLocationClick) {
-          el.addEventListener('click', () => onLocationClick(loc));
+        // Skip selected destination (drawn distinctly)
+        if (destination && Math.abs(destination.lat - lat) < 0.0001 && Math.abs(destination.lng - lng) < 0.0001) {
+          return;
         }
 
-        const marker = new maplibregl.Marker({ element: el })
-          .setLngLat([lng, lat])
-          .addTo(map);
+        const cat = getCategoryInfo(loc.category?.slug);
 
-        markersRef.current.push(marker);
+        const markerIcon = L.divIcon({
+          className: 'facility-marker-wrapper',
+          html: `
+            <div class="facility-marker-pin" style="background-color: ${cat.bg};">
+              <span class="facility-icon">${cat.icon}</span>
+            </div>
+          `,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+          popupAnchor: [0, -16],
+        });
+
+        const marker = L.marker([lat, lng], { icon: markerIcon });
+
+        // Popup card
+        const popupCard = document.createElement('div');
+        popupCard.className = 'facility-popup-card';
+        popupCard.innerHTML = `
+          <div class="font-bold text-xs sm:text-sm text-[#9b1b30] mb-0.5 leading-snug">${loc.name}</div>
+          ${loc.name_te ? `<div class="text-[11px] text-gray-500 font-medium mb-1">${loc.name_te}</div>` : ''}
+          ${loc.address ? `<div class="text-[10px] text-gray-600 mb-2 truncate max-w-[200px]">${loc.address}</div>` : ''}
+          <button class="navigate-btn">
+            Select Destination / ఎంచుకోండి
+          </button>
+        `;
+
+        const btn = popupCard.querySelector('.navigate-btn');
+        if (btn) {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onLocationClick?.(loc);
+            marker.closePopup();
+          });
+        }
+
+        marker.bindPopup(popupCard, { maxWidth: 240, minWidth: 180, className: 'temple-popup' });
+        marker.on('click', () => {
+          onLocationClick?.(loc);
+        });
+
+        group.addLayer(marker);
       });
-    };
-    renderMarkers();
-  }, [destinations, onLocationClick]);
+    }
 
-  // Render route
+    renderDestinations();
+  }, [destinations, destination, onLocationClick, mapReady, isMapAlive]);
+
+  // 6. Render Route Line
   useEffect(() => {
-    if (!mapRef.current || !route) return;
-    const renderRoute = async () => {
-      const map = mapRef.current;
-      if (!map) return;
+    if (!mapReady || !isMapAlive()) return;
+    const group = routeGroupRef.current;
+    const map = mapRef.current;
+    if (!group || !map) return;
 
-      // Wait for map to be loaded
-      if (!map.isStyleLoaded()) {
-        map.once('load', () => renderRoute());
-        return;
-      }
+    async function renderRoute() {
+      const L = await getLeaflet();
+      if (!isMapAlive() || !group || !map) return;
 
-      // Remove existing route layers
-      if (map.getLayer('route-line')) map.removeLayer('route-line');
-      if (map.getSource('route')) map.removeSource('route');
+      group.clearLayers();
 
-      map.addSource('route', {
-        type: 'geojson',
-        data: {
-          type: 'Feature',
-          geometry: {
-            type: 'LineString',
-            coordinates: route.coordinates,
-          },
-          properties: {},
-        },
+      if (!route || !route.coordinates || route.coordinates.length < 2) return;
+
+      const latLngs = route.coordinates.map(([lng, lat]) => [lat, lng] as [number, number]);
+
+      // Amber glow underlayer
+      const glow = L.polyline(latLngs, {
+        color: '#f59e0b',
+        weight: 8,
+        opacity: 0.55,
+        lineCap: 'round',
+        lineJoin: 'round',
       });
 
-      map.addLayer({
-        id: 'route-line',
-        type: 'line',
-        source: 'route',
-        layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: {
-          'line-color': '#9b1b30',
-          'line-width': 4,
-          'line-opacity': 0.9,
-        },
+      // Durga Maroon main route
+      const line = L.polyline(latLngs, {
+        color: '#9b1b30',
+        weight: 5,
+        opacity: 0.95,
+        lineCap: 'round',
+        lineJoin: 'round',
       });
 
-      // Fit map to route
-      const maplibregl = await getMapLibre();
-      const coords = route.coordinates;
-      if (coords.length > 1) {
-        const bounds = coords.reduce(
-          (b, c) => b.extend(c as [number, number]),
-          new maplibregl.LngLatBounds(coords[0] as [number, number], coords[0] as [number, number])
-        );
-        map.fitBounds(bounds, { padding: 60, maxZoom: 17 });
-      }
-    };
+      group.addLayer(glow);
+      group.addLayer(line);
+
+      try {
+        map.fitBounds(line.getBounds(), {
+          padding: [50, 50],
+          maxZoom: 18,
+          animate: false,
+        });
+      } catch {}
+    }
+
     renderRoute();
-  }, [route]);
+  }, [route, mapReady, isMapAlive]);
 
   if (error) {
     return (
-      <div className={cn('flex items-center justify-center bg-gray-50 rounded-lg', className)}>
-        <div className="text-center p-4">
-          <p className="text-sm text-gray-600">{error}</p>
+      <div className={cn('flex items-center justify-center bg-gray-50 rounded-lg p-6', className)}>
+        <div className="text-center p-4 max-w-sm">
+          <p className="text-sm font-semibold text-gray-700 mb-2">{error}</p>
           <button
-            className="btn btn-outline btn-sm mt-3"
-            onClick={() => { setError(null); setIsLoading(true); mapRef.current = null; initMap(); }}
+            className="btn btn-outline btn-sm"
+            onClick={() => {
+              setError(null);
+              setIsLoading(true);
+              window.location.reload();
+            }}
           >
-            Retry
+            Retry Map
           </button>
         </div>
       </div>
@@ -275,22 +463,158 @@ export function MapView({
   }
 
   return (
-    <div className={cn('relative overflow-hidden', className)}>
+    <div className={cn('relative w-full h-full overflow-hidden select-none', className)}>
+      {/* Loading indicator */}
       {isLoading && (
-        <div className="absolute inset-0 bg-gray-100 flex items-center justify-center z-10">
+        <div className="absolute inset-0 bg-gray-50/90 backdrop-blur-xs flex items-center justify-center z-20">
           <div className="text-center">
-            <div className="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-sm text-gray-500 font-medium">Loading map...</p>
+            <div className="w-8 h-8 border-3 border-amber-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+            <p className="text-xs text-gray-600 font-semibold tracking-wide">Loading Temple Map...</p>
           </div>
         </div>
       )}
-      <div ref={mapContainer} className="w-full h-full" />
 
-      {/* Pulse animation */}
-      <style jsx>{`
-        @keyframes pulse-location {
-          0% { transform: scale(1); opacity: 0.8; }
-          100% { transform: scale(2.5); opacity: 0; }
+      {/* Map DOM Element */}
+      <div ref={mapContainer} className="w-full h-full min-h-full" style={{ minHeight: '300px' }} />
+
+      {/* Global CSS for markers and popups */}
+      <style jsx global>{`
+        /* User GPS Pulse */
+        .user-pulse-marker {
+          position: relative;
+          width: 24px;
+          height: 24px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .pulse-core {
+          width: 14px;
+          height: 14px;
+          background: #2563eb;
+          border: 2.5px solid #ffffff;
+          border-radius: 50%;
+          box-shadow: 0 2px 8px rgba(37, 99, 235, 0.6);
+          z-index: 2;
+        }
+        .pulse-ring {
+          position: absolute;
+          inset: -4px;
+          border: 3px solid rgba(37, 99, 235, 0.5);
+          border-radius: 50%;
+          animation: user-beacon-pulse 2s ease-out infinite;
+          z-index: 1;
+        }
+        @keyframes user-beacon-pulse {
+          0% { transform: scale(0.6); opacity: 1; }
+          100% { transform: scale(2.6); opacity: 0; }
+        }
+
+        /* Destination Pin */
+        .dest-pin-marker {
+          position: relative;
+          width: 38px;
+          height: 44px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+        .dest-pin-badge {
+          width: 34px;
+          height: 34px;
+          background: linear-gradient(135deg, #9b1b30, #7a1425);
+          border: 2.5px solid #fde047;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 17px;
+          box-shadow: 0 4px 12px rgba(122, 20, 37, 0.5);
+          color: white;
+        }
+        .dest-pin-point {
+          width: 0;
+          height: 0;
+          border-left: 6px solid transparent;
+          border-right: 6px solid transparent;
+          border-top: 8px solid #7a1425;
+          margin-top: -2px;
+        }
+
+        /* Facility Markers */
+        .facility-marker-pin {
+          width: 30px;
+          height: 30px;
+          border-radius: 50%;
+          border: 2px solid #ffffff;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .facility-marker-pin:hover {
+          transform: scale(1.15);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+        }
+        .facility-icon {
+          font-size: 14px;
+          line-height: 1;
+        }
+
+        /* Popups */
+        .temple-popup .leaflet-popup-content-wrapper {
+          border-radius: 12px;
+          padding: 4px;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+          border: 1px solid rgba(155, 27, 48, 0.15);
+        }
+        .temple-popup .leaflet-popup-content {
+          margin: 8px;
+          line-height: 1.4;
+        }
+        .navigate-btn {
+          width: 100%;
+          background: #9b1b30;
+          color: #ffffff;
+          padding: 6px 10px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 700;
+          border: none;
+          cursor: pointer;
+          transition: background-color 0.15s ease;
+          display: block;
+          text-align: center;
+        }
+        .navigate-btn:hover {
+          background: #7a1425;
+        }
+
+        /* Leaflet Controls */
+        .leaflet-control-zoom {
+          border: none !important;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+          border-radius: 8px !important;
+          overflow: hidden;
+        }
+        .leaflet-control-zoom a {
+          background: #ffffff !important;
+          color: #333333 !important;
+          font-weight: bold !important;
+          width: 32px !important;
+          height: 32px !important;
+          line-height: 32px !important;
+          border-bottom: 1px solid #e5e7eb !important;
+        }
+        .leaflet-control-attribution {
+          background: rgba(255, 255, 255, 0.85) !important;
+          backdrop-filter: blur(4px);
+          font-size: 9px !important;
+          border-radius: 4px;
+          padding: 2px 6px !important;
+          margin: 4px !important;
         }
       `}</style>
     </div>

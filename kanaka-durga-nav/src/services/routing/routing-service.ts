@@ -1,6 +1,6 @@
 // Routing Service Interface
-// All routing providers (OSRM, Valhalla, GraphHopper, vendor APIs) implement RoutingService.
-// Swap by changing ROUTING_PROVIDER env var — no UI code changes needed.
+// All routing providers (OSRM public, OSRM self-hosted, Mock) implement RoutingService.
+// Default: OSRM Public API (router.project-osrm.org) — real road routing, no API key needed.
 
 import type { LngLat, NavigationRoute, NavigationStep, RouteClosure } from '@/types';
 
@@ -21,11 +21,86 @@ export interface RoutingService {
 }
 
 // ============================================================
-// OSRM Implementation
-// Calls through /api/routing/route to avoid exposing OSRM URL to clients
+// OSRM Public API — Real road-following pedestrian routing
+// Uses public router.project-osrm.org (foot profile)
+// No API key required. Falls back to mock on failure.
 // ============================================================
-class OsrmRoutingService implements RoutingService {
-  readonly name = 'OSRM';
+class OsrmPublicRoutingService implements RoutingService {
+  readonly name = 'OSRM Public';
+
+  async route(request: RoutingRequest): Promise<NavigationRoute> {
+    const { origin, destination } = request;
+
+    // OSRM expects lng,lat order
+    const url = `https://router.project-osrm.org/route/v1/foot/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson&steps=true&annotations=false`;
+
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+      if (!res.ok) throw new Error(`OSRM responded ${res.status}`);
+
+      const data = await res.json();
+
+      if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
+        throw new Error('OSRM returned no routes');
+      }
+
+      const osrmRoute = data.routes[0];
+      const leg = osrmRoute.legs[0];
+
+      // Extract coordinates from GeoJSON geometry (already [lng, lat])
+      const coordinates: [number, number][] = osrmRoute.geometry.coordinates;
+
+      // Convert OSRM steps to NavigationStep[]
+      const steps: NavigationStep[] = leg.steps.map((step: {
+        maneuver: { type: string; modifier?: string; location: [number, number] };
+        name: string;
+        distance: number;
+        duration: number;
+      }) => {
+        const instruction = buildInstruction(step.maneuver.type, step.maneuver.modifier, step.name);
+        return {
+          instruction,
+          instruction_te: instruction, // Telugu support: same for now
+          distance_meters: Math.round(step.distance),
+          duration_seconds: Math.round(step.duration),
+          coordinate: step.maneuver.location as [number, number],
+          maneuver: step.maneuver.type,
+        };
+      });
+
+      // Ensure last step is "arrive"
+      if (steps.length === 0 || steps[steps.length - 1].maneuver !== 'arrive') {
+        steps.push({
+          instruction: 'You have arrived at your destination',
+          instruction_te: 'మీరు మీ గమ్యస్థానానికి చేరుకున్నారు',
+          distance_meters: 0,
+          duration_seconds: 0,
+          coordinate: [destination.lng, destination.lat],
+          maneuver: 'arrive',
+        });
+      }
+
+      return {
+        coordinates,
+        distance_meters: Math.round(osrmRoute.distance),
+        duration_seconds: Math.round(osrmRoute.duration),
+        steps,
+        provider: this.name,
+        is_mock: false,
+      };
+    } catch (err) {
+      console.warn('[OSRM Public] Failed, falling back to mock route:', err);
+      // Fall back to mock service
+      return new MockRoutingService().route(request);
+    }
+  }
+}
+
+// ============================================================
+// OSRM Self-Hosted — Calls through /api/routing/route
+// ============================================================
+class OsrmSelfHostedRoutingService implements RoutingService {
+  readonly name = 'OSRM Self-Hosted';
 
   async route(request: RoutingRequest): Promise<NavigationRoute> {
     const params = new URLSearchParams({
@@ -45,38 +120,45 @@ class OsrmRoutingService implements RoutingService {
 
 // ============================================================
 // Mock / Dev Routing Service
-// Returns a straight-line route with fake steps
-// Used when no routing backend is configured
+// Returns a straight-line route — used as last resort fallback
 // ============================================================
 class MockRoutingService implements RoutingService {
-  readonly name = 'Mock (Dev)';
+  readonly name = 'Mock (Straight-line)';
 
   async route(request: RoutingRequest): Promise<NavigationRoute> {
     const { origin, destination } = request;
 
-    // Straight-line distance (Haversine)
     const distanceMeters = haversineDistance(origin, destination);
     const durationSeconds = Math.round(distanceMeters / 1.2); // ~1.2 m/s walking speed
 
     // Generate intermediate waypoints for a straight-line path
-    const steps = 5;
+    const numPoints = 10;
     const coords: [number, number][] = [];
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps;
+    for (let i = 0; i <= numPoints; i++) {
+      const t = i / numPoints;
       coords.push([
         origin.lng + (destination.lng - origin.lng) * t,
         origin.lat + (destination.lat - origin.lat) * t,
       ]);
     }
 
+    const halfDist = distanceMeters / 2;
     const navSteps: NavigationStep[] = [
       {
-        instruction: 'Walk toward your destination',
-        instruction_te: 'మీ గమ్యస్థానం వైపు నడవండి',
-        distance_meters: distanceMeters,
-        duration_seconds: durationSeconds,
+        instruction: 'Head toward your destination',
+        instruction_te: 'మీ గమ్యస్థానం వైపు వెళ్ళండి',
+        distance_meters: halfDist,
+        duration_seconds: Math.round(halfDist / 1.2),
         coordinate: [origin.lng, origin.lat],
         maneuver: 'depart',
+      },
+      {
+        instruction: `Continue for ${Math.round(halfDist)}m`,
+        instruction_te: `${Math.round(halfDist)} మీటర్లు ముందుకు వెళ్ళండి`,
+        distance_meters: halfDist / 2,
+        duration_seconds: Math.round(halfDist / 2 / 1.2),
+        coordinate: coords[Math.floor(numPoints / 2)],
+        maneuver: 'straight',
       },
       {
         instruction: 'You have arrived at your destination',
@@ -100,20 +182,60 @@ class MockRoutingService implements RoutingService {
 }
 
 // ============================================================
-// Factory
+// Human-readable instruction builder for OSRM maneuver types
+// ============================================================
+function buildInstruction(type: string, modifier?: string, streetName?: string): string {
+  const on = streetName && streetName !== '' ? ` on ${streetName}` : '';
+  switch (type) {
+    case 'depart':
+      return `Head ${modifier ?? 'forward'}${on}`;
+    case 'arrive':
+      return 'You have arrived at your destination';
+    case 'turn':
+      return `Turn ${modifier ?? 'right'}${on}`;
+    case 'new name':
+      return `Continue${on}`;
+    case 'merge':
+      return `Merge ${modifier ?? 'straight'}${on}`;
+    case 'ramp':
+      return `Take the ramp ${modifier ?? ''}${on}`.trim();
+    case 'fork':
+      return `Keep ${modifier ?? 'straight'} at the fork${on}`;
+    case 'end of road':
+      return `Turn ${modifier ?? 'right'} at the end of road${on}`;
+    case 'use lane':
+      return `Use the ${modifier ?? ''} lane${on}`.trim();
+    case 'continue':
+      return `Continue ${modifier ?? 'straight'}${on}`;
+    case 'roundabout':
+    case 'rotary':
+      return `Enter the roundabout${on}`;
+    case 'roundabout turn':
+      return `At the roundabout, turn ${modifier ?? 'right'}`;
+    case 'exit roundabout':
+    case 'exit rotary':
+      return `Exit the roundabout${on}`;
+    default:
+      return `Continue${on}`;
+  }
+}
+
+// ============================================================
+// Factory — selects provider based on env var
+// Default: OSRM public API (real road routing, no key needed)
 // ============================================================
 export function createRoutingService(): RoutingService {
-  const provider = process.env.NEXT_PUBLIC_ROUTING_PROVIDER ?? 'mock';
+  const provider = (process.env.NEXT_PUBLIC_ROUTING_PROVIDER ?? 'osrm-public').toLowerCase();
 
   switch (provider) {
     case 'osrm':
-      return new OsrmRoutingService();
+    case 'osrm-self':
+      return new OsrmSelfHostedRoutingService();
     case 'mock':
-    default:
-      if (process.env.NODE_ENV === 'production' && provider === 'mock') {
-        console.warn('[Routing] Mock routing service is NOT suitable for production. Set NEXT_PUBLIC_ROUTING_PROVIDER=osrm and configure OSRM_BASE_URL.');
-      }
       return new MockRoutingService();
+    case 'osrm-public':
+    default:
+      return new OsrmPublicRoutingService();
   }
 }
 

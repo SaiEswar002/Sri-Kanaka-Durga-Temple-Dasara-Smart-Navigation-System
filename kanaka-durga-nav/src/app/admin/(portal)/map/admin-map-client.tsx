@@ -1,0 +1,180 @@
+'use client';
+
+import { useState, useMemo } from 'react';
+import dynamic from 'next/dynamic';
+import { useLocations, useActiveClosures } from '@/hooks/use-data';
+import type { Location } from '@/types';
+import { Eye, Car, Plus, Utensils, Bus, Filter, AlertTriangle, MapPin } from 'lucide-react';
+
+const MapView = dynamic(
+  () => import('@/components/map/map-view').then((m) => ({ default: m.MapView })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-full min-h-[500px] bg-gray-100 flex items-center justify-center rounded-2xl border border-gray-200">
+        <div className="text-center">
+          <div className="w-8 h-8 border-3 border-amber-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+          <span className="text-xs text-gray-500 font-semibold">Loading Admin Live Map...</span>
+        </div>
+      </div>
+    ),
+  }
+);
+
+export function AdminMapClient() {
+  const { data: allLocations } = useLocations();
+  const { data: closures } = useActiveClosures();
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
+
+  const filteredLocations = useMemo(() => {
+    if (!allLocations) return [];
+    if (selectedCategory === 'all') return allLocations;
+    return allLocations.filter((l) => l.category?.slug === selectedCategory);
+  }, [allLocations, selectedCategory]);
+
+  const FILTERS = [
+    { id: 'all', label: 'All Facilities', icon: Filter },
+    { id: 'darshan', label: 'Queues & Darshan', icon: Eye },
+    { id: 'parking', label: 'Parking Grounds', icon: Car },
+    { id: 'medical', label: 'Medical & SOS', icon: Plus },
+    { id: 'food', label: 'Annadanam', icon: Utensils },
+    { id: 'bus', label: 'RTC Shuttles', icon: Bus },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {/* Category Filter Pills */}
+      <div className="flex flex-wrap items-center gap-2">
+        {FILTERS.map(({ id, label, icon: Icon }) => {
+          const isActive = selectedCategory === id;
+          return (
+            <button
+              key={id}
+              onClick={() => setSelectedCategory(id)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border shadow-xs cursor-pointer ${
+                isActive
+                  ? 'bg-[#9b1b30] text-white border-[#7a1425] shadow-sm'
+                  : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <Icon size={14} className={isActive ? 'text-amber-300' : 'text-gray-500'} />
+              <span>{label}</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ml-1 ${
+                isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
+              }`}>
+                {id === 'all'
+                  ? allLocations?.length ?? 0
+                  : allLocations?.filter((l) => l.category?.slug === id).length ?? 0}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Main Map Container */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div className="lg:col-span-3 h-[72vh] rounded-2xl overflow-hidden border border-gray-200 shadow-sm relative bg-gray-50">
+          <MapView
+            className="w-full h-full"
+            destinations={filteredLocations}
+            destination={
+              selectedLocation?.position?.coordinates
+                ? {
+                    lng: selectedLocation.position.coordinates[0],
+                    lat: selectedLocation.position.coordinates[1],
+                  }
+                : undefined
+            }
+            onLocationClick={(loc) => setSelectedLocation(loc)}
+          />
+
+          {/* Closures Banner */}
+          {(closures?.length ?? 0) > 0 && (
+            <div className="absolute top-3 left-3 z-10 bg-amber-500/90 text-amber-950 backdrop-blur-xs px-3 py-1.5 rounded-xl text-xs font-bold border border-amber-400 shadow-sm flex items-center gap-2">
+              <AlertTriangle size={14} className="text-amber-950" />
+              <span>{closures!.length} Active Route Advisory In Effect</span>
+            </div>
+          )}
+        </div>
+
+        {/* Selected Facility Inspector */}
+        <div className="lg:col-span-1 bg-white rounded-2xl border border-gray-200 p-4 shadow-sm h-[72vh] overflow-y-auto flex flex-col">
+          <div className="flex items-center gap-2 mb-3 pb-3 border-b border-gray-100">
+            <MapPin size={18} className="text-[#9b1b30]" />
+            <h3 className="font-bold text-sm text-gray-900">Facility Inspector</h3>
+          </div>
+
+          {selectedLocation ? (
+            <div className="space-y-3">
+              <div>
+                <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                  {selectedLocation.category?.name ?? 'Facility'}
+                </span>
+                <h4 className="font-bold text-base text-gray-900 mt-1 leading-snug">
+                  {selectedLocation.name}
+                </h4>
+                {selectedLocation.name_te && (
+                  <p className="text-xs text-gray-500 font-medium">{selectedLocation.name_te}</p>
+                )}
+              </div>
+
+              {selectedLocation.description && (
+                <p className="text-xs text-gray-600 leading-relaxed bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+                  {selectedLocation.description}
+                </p>
+              )}
+
+              <div className="space-y-1.5 text-xs text-gray-600">
+                {selectedLocation.address && (
+                  <div className="flex justify-between py-1 border-b border-gray-50">
+                    <span className="text-gray-400">Address:</span>
+                    <span className="font-medium text-right truncate max-w-40">{selectedLocation.address}</span>
+                  </div>
+                )}
+                {selectedLocation.contact_phone && (
+                  <div className="flex justify-between py-1 border-b border-gray-50">
+                    <span className="text-gray-400">Helpline:</span>
+                    <span className="font-bold text-[#9b1b30]">{selectedLocation.contact_phone}</span>
+                  </div>
+                )}
+                {selectedLocation.operating_hours && (
+                  <div className="flex justify-between py-1 border-b border-gray-50">
+                    <span className="text-gray-400">Hours:</span>
+                    <span className="font-medium">{selectedLocation.operating_hours}</span>
+                  </div>
+                )}
+                {selectedLocation.capacity && (
+                  <div className="flex justify-between py-1 border-b border-gray-50">
+                    <span className="text-gray-400">Capacity:</span>
+                    <span className="font-bold">{selectedLocation.capacity.toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="flex justify-between py-1">
+                  <span className="text-gray-400">Coordinates:</span>
+                  <span className="font-mono text-[11px] text-gray-500">
+                    {selectedLocation.position?.coordinates[1]?.toFixed(4)}, {selectedLocation.position?.coordinates[0]?.toFixed(4)}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setSelectedLocation(null)}
+                className="w-full mt-auto py-2 text-xs font-semibold text-gray-500 hover:text-gray-800 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                Clear Selection
+              </button>
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-center p-4 text-gray-400">
+              <div className="w-12 h-12 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-300 mb-2">
+                <MapPin size={24} />
+              </div>
+              <p className="text-xs font-medium text-gray-500">Click any marker on the map to inspect facility telemetry</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

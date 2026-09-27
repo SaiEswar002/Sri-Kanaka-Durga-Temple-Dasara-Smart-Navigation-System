@@ -1,96 +1,171 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Telugu:wght@300;400;500;600;700&display=swap');
+/* ============================================================
+   GOOGLE FONTS — must also be in layout.tsx <head>
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Forum&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Telugu:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
 /* ============================================================
-   DESIGN TOKEN SYSTEM — Sri Kanaka Durga Temple Navigation
-   Devotional palette: deep crimson, saffron, temple gold
+   LEAFLET FIXES — must not be overridden by Tailwind preflight
    ============================================================ */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  font-family: 'Inter', system-ui, sans-serif;
+  background: #fdfbf7 !important;
+}
+.leaflet-container img { max-width: none !important; max-height: none !important; display: block !important; }
+.leaflet-tile           { visibility: inherit !important; }
+.leaflet-tile-pane      { z-index: 2; }
+.leaflet-overlay-pane   { z-index: 4; }
+.leaflet-marker-pane    { z-index: 6; }
+.leaflet-popup-pane     { z-index: 7; }
 
+/* ============================================================
+   DESIGN TOKEN SYSTEM
+   Sri Kanaka Durga Temple — Dasara Smart Navigation
+   ============================================================ */
 :root {
-  /* --- Primary: Deep Durga Crimson --- */
-  --color-primary:          #9b1b30;
-  --color-primary-dark:     #7a1425;
-  --color-primary-light:    #c42444;
-  --color-primary-subtle:   #fdf0f2;
-  --color-primary-muted:    #f3d0d6;
+  /* ── Temple Color Palette ────────────────────────────────── */
+  --color-primary:          #9B1C31;   /* Crimson */
+  --color-primary-dark:     #6F1425;   /* Deep Maroon */
+  --color-primary-light:    #C42444;
+  --color-primary-subtle:   #FFF0F2;
+  --color-primary-muted:    #F2D0D6;
 
-  /* --- Secondary: Saffron / Golden Orange --- */
-  --color-secondary:        #d4851a;
-  --color-secondary-dark:   #b06a10;
-  --color-secondary-light:  #f0a030;
-  --color-secondary-subtle: #fff8ed;
+  --color-gold:             #D4A017;   /* Temple Gold */
+  --color-gold-dark:        #A87E0D;
+  --color-gold-light:       #F2C94C;   /* Bright Gold */
+  --color-gold-subtle:      #FDF9ED;
+  --color-saffron:          #D97706;   /* Saffron */
+  --color-saffron-light:    #F59E0B;
 
-  /* --- Accent: Temple Gold --- */
-  --color-accent:           #c9a227;
-  --color-accent-dark:      #a88015;
-  --color-accent-light:     #e5c44a;
-  --color-accent-subtle:    #fdf9ed;
+  /* ── Backgrounds & Surfaces ──────────────────────────────── */
+  --color-background:       #FFF8E7;   /* Warm Ivory */
+  --color-surface:          #FFFFFF;
+  --color-surface-alt:      #FDF5E4;   /* Warm Sand tint */
+  --color-surface-warm:     #F5E6C8;   /* Warm Sand */
+  --color-charcoal:         #2B2118;   /* Deep Brown/Charcoal */
 
-  /* --- Backgrounds --- */
-  --color-background:       #faf8f5;  /* warm ivory */
-  --color-surface:          #ffffff;
-  --color-surface-alt:      #f7f4ef;
+  /* ── Text ────────────────────────────────────────────────── */
+  --color-text:             #2B2118;   /* Deep Brown */
+  --color-text-secondary:   #5C3440;   /* Maroon-brown */
+  --color-text-muted:       #8A6878;
+  --color-text-inverted:    #FFFFFF;
 
-  /* --- Text --- */
-  --color-text:             #1a0a0c;  /* deep maroon-black */
-  --color-text-secondary:   #5c3440;
-  --color-text-muted:       #8a6070;
-  --color-text-inverted:    #ffffff;
+  /* ── Borders ─────────────────────────────────────────────── */
+  --color-border:           #E8D5C0;
+  --color-border-strong:    #C9A088;
 
-  /* --- Border --- */
-  --color-border:           #e8d5d8;
-  --color-border-strong:    #c9a0aa;
+  /* ── Status (Semantic) ───────────────────────────────────── */
+  --color-success:          #16803C;
+  --color-success-bg:       #F0FDF4;
+  --color-warning:          #C76A00;
+  --color-warning-bg:       #FFFBEB;
+  --color-danger:           #C62828;
+  --color-danger-bg:        #FEF2F2;
+  --color-info:             #2563A6;
+  --color-info-bg:          #EFF6FF;
 
-  /* --- Status --- */
-  --color-success:          #15803d;
-  --color-success-bg:       #f0fdf4;
-  --color-warning:          #b45309;
-  --color-warning-bg:       #fffbeb;
-  --color-danger:           #dc2626;
-  --color-danger-bg:        #fef2f2;
-  --color-info:             #1d4ed8;
-  --color-info-bg:          #eff6ff;
+  /* ── Crowd Level ─────────────────────────────────────────── */
+  --color-crowd-low:        #16803C;
+  --color-crowd-normal:     #2563A6;
+  --color-crowd-medium:     #C76A00;
+  --color-crowd-high:       #EA580C;
+  --color-crowd-critical:   #C62828;
 
-  /* --- Crowd Level Colors --- */
-  --color-crowd-low:        #15803d;
-  --color-crowd-normal:     #1d4ed8;
-  --color-crowd-medium:     #d97706;
-  --color-crowd-high:       #ea580c;
-  --color-crowd-critical:   #dc2626;
+  /* ── Typography Families ─────────────────────────────────── */
+  /* Cinzel — English major headings, hero, page titles */
+  --font-display:   'Cinzel', 'Georgia', serif;
+  /* Forum — temple branding, ceremonial labels, heritage sub-headings */
+  --font-heritage:  'Forum', 'Georgia', serif;
+  /* Cormorant Garamond — elegant subtitles, supporting display text */
+  --font-elegant:   'Cormorant Garamond', 'Georgia', serif;
+  /* Inter — body, buttons, nav, forms, numbers, admin UI */
+  --font-sans:      'Inter', 'Noto Sans Telugu', system-ui, sans-serif;
+  /* Noto Sans Telugu — Telugu text exclusively */
+  --font-telugu:    'Noto Sans Telugu', system-ui, sans-serif;
 
-  /* --- Typography --- */
-  --font-sans:              'Inter', 'Noto Sans Telugu', system-ui, sans-serif;
-  --font-size-xs:           0.75rem;    /* 12px */
-  --font-size-sm:           0.875rem;   /* 14px */
-  --font-size-base:         1rem;       /* 16px */
-  --font-size-lg:           1.125rem;   /* 18px */
-  --font-size-xl:           1.25rem;    /* 20px */
-  --font-size-2xl:          1.5rem;     /* 24px */
-  --font-size-3xl:          1.875rem;   /* 30px */
+  /* ── Type Scale ──────────────────────────────────────────── */
+  --font-size-xs:    0.75rem;    /* 12px */
+  --font-size-sm:    0.875rem;   /* 14px */
+  --font-size-base:  1rem;       /* 16px */
+  --font-size-lg:    1.125rem;   /* 18px */
+  --font-size-xl:    1.25rem;    /* 20px */
+  --font-size-2xl:   1.5rem;     /* 24px */
+  --font-size-3xl:   1.875rem;   /* 30px */
+  --font-size-4xl:   2.25rem;    /* 36px */
+  --font-size-5xl:   3rem;       /* 48px */
 
-  /* --- Spacing --- */
-  --spacing-touch:          44px;       /* minimum touch target */
+  /* ── Spacing & Touch ─────────────────────────────────────── */
+  --spacing-touch:   44px;       /* minimum tap target */
+  --spacing-touch-lg: 52px;
 
-  /* --- Radius --- */
-  --radius-sm:              0.375rem;
-  --radius-md:              0.75rem;
-  --radius-lg:              1rem;
-  --radius-xl:              1.5rem;
-  --radius-full:            9999px;
+  /* ── Border Radius ───────────────────────────────────────── */
+  --radius-xs:  0.25rem;
+  --radius-sm:  0.375rem;
+  --radius-md:  0.75rem;
+  --radius-lg:  1rem;
+  --radius-xl:  1.5rem;
+  --radius-2xl: 2rem;
+  --radius-full: 9999px;
 
-  /* --- Shadows --- */
-  --shadow-sm:              0 1px 3px rgba(155, 27, 48, 0.08);
-  --shadow-md:              0 4px 12px rgba(155, 27, 48, 0.12);
-  --shadow-lg:              0 8px 24px rgba(155, 27, 48, 0.16);
-  --shadow-card:            0 2px 8px rgba(26, 10, 12, 0.06);
+  /* ── Shadows (crimson-tinted) ────────────────────────────── */
+  --shadow-sm:    0 1px 3px rgba(43, 33, 24, 0.08);
+  --shadow-md:    0 4px 12px rgba(43, 33, 24, 0.12);
+  --shadow-lg:    0 8px 24px rgba(43, 33, 24, 0.14);
+  --shadow-card:  0 2px 8px rgba(43, 33, 24, 0.06), 0 0 0 1px rgba(232, 213, 192, 0.5);
+  --shadow-gold:  0 4px 16px rgba(212, 160, 23, 0.25);
+  --shadow-crimson: 0 4px 16px rgba(155, 28, 49, 0.3);
 }
 
 /* ============================================================
-   BASE STYLES
+   TAILWIND THEME EXTENSION
    ============================================================ */
-*, *::before, *::after {
-  box-sizing: border-box;
+@theme {
+  --color-primary:         var(--color-primary);
+  --color-primary-dark:    var(--color-primary-dark);
+  --color-primary-light:   var(--color-primary-light);
+  --color-primary-subtle:  var(--color-primary-subtle);
+  --color-primary-muted:   var(--color-primary-muted);
+  --color-gold:            var(--color-gold);
+  --color-gold-dark:       var(--color-gold-dark);
+  --color-gold-light:      var(--color-gold-light);
+  --color-gold-subtle:     var(--color-gold-subtle);
+  --color-saffron:         var(--color-saffron);
+  --color-background:      var(--color-background);
+  --color-surface:         var(--color-surface);
+  --color-surface-alt:     var(--color-surface-alt);
+  --color-surface-warm:    var(--color-surface-warm);
+  --color-charcoal:        var(--color-charcoal);
+  --color-text-body:       var(--color-text);
+  --color-text-secondary:  var(--color-text-secondary);
+  --color-text-muted:      var(--color-text-muted);
+  --color-border:          var(--color-border);
+  --color-border-strong:   var(--color-border-strong);
+  --color-success:         var(--color-success);
+  --color-warning:         var(--color-warning);
+  --color-danger:          var(--color-danger);
+  --color-info:            var(--color-info);
+
+  --font-family-sans:      var(--font-sans);
+  --font-family-display:   var(--font-display);
+  --font-family-heritage:  var(--font-heritage);
+  --font-family-elegant:   var(--font-elegant);
+  --font-family-telugu:    var(--font-telugu);
+
+  --radius-xs:   var(--radius-xs);
+  --radius-sm:   var(--radius-sm);
+  --radius-md:   var(--radius-md);
+  --radius-lg:   var(--radius-lg);
+  --radius-xl:   var(--radius-xl);
+  --radius-2xl:  var(--radius-2xl);
 }
+
+/* ============================================================
+   BASE RESET & GLOBAL STYLES
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
 
 html {
   font-family: var(--font-sans);
@@ -99,8 +174,8 @@ html {
   background-color: var(--color-background);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* Prevent layout shift from scrollbar */
   scrollbar-gutter: stable;
+  text-rendering: optimizeLegibility;
 }
 
 body {
@@ -110,19 +185,14 @@ body {
   overflow-y: auto;
 }
 
-/* Prevent tap highlight on mobile */
-* {
-  -webkit-tap-highlight-color: transparent;
-}
+* { -webkit-tap-highlight-color: transparent; }
 
-/* Better focus ring for accessibility */
 :focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
   border-radius: 2px;
 }
 
-/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -132,42 +202,54 @@ body {
 }
 
 /* ============================================================
-   TAILWIND THEME EXTENSION
-   Maps CSS vars to Tailwind utilities
+   TYPOGRAPHY UTILITY CLASSES
+   Use these centrally — do NOT scatter font-family inline
    ============================================================ */
-@theme {
-  --color-primary:          var(--color-primary);
-  --color-primary-dark:     var(--color-primary-dark);
-  --color-primary-light:    var(--color-primary-light);
-  --color-primary-subtle:   var(--color-primary-subtle);
-  --color-secondary:        var(--color-secondary);
-  --color-secondary-dark:   var(--color-secondary-dark);
-  --color-secondary-light:  var(--color-secondary-light);
-  --color-accent:           var(--color-accent);
-  --color-accent-dark:      var(--color-accent-dark);
-  --color-accent-light:     var(--color-accent-light);
-  --color-accent-subtle:    var(--color-accent-subtle);
-  --color-background:       var(--color-background);
-  --color-surface:          var(--color-surface);
-  --color-surface-alt:      var(--color-surface-alt);
-  --color-text-body:        var(--color-text);
-  --color-text-secondary:   var(--color-text-secondary);
-  --color-text-muted:       var(--color-text-muted);
-  --color-border:           var(--color-border);
-  --color-border-strong:    var(--color-border-strong);
 
-  --font-family-sans:       var(--font-sans);
-  --radius-sm:              var(--radius-sm);
-  --radius-md:              var(--radius-md);
-  --radius-lg:              var(--radius-lg);
-  --radius-xl:              var(--radius-xl);
+/* Hero / Page Title (English only) */
+.font-display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
+
+/* Temple branding, ceremonial sub-headings (English only) */
+.font-heritage {
+  font-family: var(--font-heritage);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+/* Elegant subtitle / supporting display text (English only) */
+.font-elegant {
+  font-family: var(--font-elegant);
+  font-weight: 500;
+}
+
+/* Telugu text always gets this */
+.font-telugu {
+  font-family: var(--font-telugu) !important;
+  font-feature-settings: normal;
+}
+
+/* Operational text (buttons, nav, forms, tables, numbers) */
+.font-sans {
+  font-family: var(--font-sans);
+}
+
+/* Page hero title — Cinzel for EN, Noto Sans Telugu for TE */
+.page-title-en { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.02em; }
+.page-title-te { font-family: var(--font-telugu); font-weight: 700; }
+
+/* Section heading — Forum for EN */
+.section-heading-en { font-family: var(--font-heritage); font-weight: 400; }
+.section-heading-te { font-family: var(--font-telugu); font-weight: 600; }
 
 /* ============================================================
    COMPONENT CLASSES
    ============================================================ */
 
-/* --- Buttons --- */
+/* ── Buttons ─────────────────────────────────────────────── */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -177,91 +259,68 @@ body {
   padding: 0.625rem 1.25rem;
   font-size: var(--font-size-base);
   font-weight: 600;
+  font-family: var(--font-sans);
   border-radius: var(--radius-md);
   border: none;
   cursor: pointer;
   transition: all 0.15s ease;
   text-decoration: none;
   white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-primary {
   background: var(--color-primary);
-  color: var(--color-text-inverted);
-  box-shadow: 0 2px 8px rgba(155, 27, 48, 0.3);
+  color: #FFFFFF;
+  box-shadow: var(--shadow-crimson);
 }
 .btn-primary:hover:not(:disabled) {
   background: var(--color-primary-dark);
-  box-shadow: 0 4px 12px rgba(155, 27, 48, 0.4);
+  box-shadow: 0 6px 20px rgba(155, 28, 49, 0.4);
   transform: translateY(-1px);
 }
-.btn-primary:active {
-  transform: translateY(0);
+.btn-primary:active { transform: translateY(0); }
+
+.btn-gold {
+  background: var(--color-gold);
+  color: var(--color-charcoal);
+  font-weight: 700;
+  box-shadow: var(--shadow-gold);
+}
+.btn-gold:hover:not(:disabled) {
+  background: var(--color-gold-dark);
+  transform: translateY(-1px);
 }
 
 .btn-secondary {
-  background: var(--color-secondary);
-  color: var(--color-text-inverted);
+  background: var(--color-saffron);
+  color: #FFFFFF;
 }
-.btn-secondary:hover:not(:disabled) {
-  background: var(--color-secondary-dark);
-}
+.btn-secondary:hover:not(:disabled) { background: #B45309; }
 
 .btn-outline {
   background: transparent;
   color: var(--color-primary);
   border: 1.5px solid var(--color-primary);
 }
-.btn-outline:hover:not(:disabled) {
-  background: var(--color-primary-subtle);
-}
+.btn-outline:hover:not(:disabled) { background: var(--color-primary-subtle); }
 
 .btn-ghost {
   background: transparent;
   color: var(--color-text-secondary);
 }
-.btn-ghost:hover:not(:disabled) {
-  background: var(--color-surface-alt);
-}
+.btn-ghost:hover:not(:disabled) { background: var(--color-surface-alt); }
 
-.btn-danger {
-  background: var(--color-danger);
-  color: white;
-}
+.btn-danger { background: var(--color-danger); color: white; }
 
-.btn-lg {
-  min-height: 52px;
-  padding: 0.75rem 1.5rem;
-  font-size: var(--font-size-lg);
-  border-radius: var(--radius-lg);
-}
+.btn-lg  { min-height: var(--spacing-touch-lg); padding: 0.75rem 1.5rem; font-size: var(--font-size-lg); border-radius: var(--radius-lg); }
+.btn-xl  { min-height: 60px; padding: 1rem 2rem; font-size: var(--font-size-xl); border-radius: var(--radius-xl); }
+.btn-sm  { min-height: 36px; padding: 0.375rem 0.875rem; font-size: var(--font-size-sm); }
+.btn-icon { min-width: var(--spacing-touch); min-height: var(--spacing-touch); padding: 0.625rem; border-radius: var(--radius-md); }
 
-.btn-xl {
-  min-height: 60px;
-  padding: 1rem 2rem;
-  font-size: var(--font-size-xl);
-  border-radius: var(--radius-xl);
-}
-
-.btn-sm {
-  min-height: 36px;
-  padding: 0.375rem 0.875rem;
-  font-size: var(--font-size-sm);
-}
-
-.btn-icon {
-  min-width: var(--spacing-touch);
-  min-height: var(--spacing-touch);
-  padding: 0.625rem;
-  border-radius: var(--radius-md);
-}
-
-/* --- Cards --- */
+/* ── Cards ───────────────────────────────────────────────── */
 .card {
   background: var(--color-surface);
   border-radius: var(--radius-lg);
@@ -270,32 +329,34 @@ body {
   overflow: hidden;
 }
 
-.card-devotional {
-  background: linear-gradient(135deg, #fff9f0 0%, #fff5f5 100%);
+.card-temple {
+  background: linear-gradient(135deg, #FFFAF0 0%, #FFF5F5 100%);
   border: 1px solid var(--color-primary-muted);
+  border-radius: var(--radius-lg);
 }
 
-/* --- Badges --- */
+/* ── Badges ──────────────────────────────────────────────── */
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.25rem 0.625rem;
+  padding: 0.2rem 0.6rem;
   font-size: var(--font-size-xs);
-  font-weight: 600;
+  font-weight: 700;
+  font-family: var(--font-sans);
   border-radius: var(--radius-full);
   border: 1px solid transparent;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  letter-spacing: 0.025em;
 }
 
-/* --- Inputs --- */
+/* ── Inputs ──────────────────────────────────────────────── */
 .input {
   width: 100%;
   min-height: var(--spacing-touch);
   padding: 0.625rem 0.875rem;
   font-size: var(--font-size-base);
-  font-family: inherit;
+  font-family: var(--font-sans);
   color: var(--color-text);
   background: var(--color-surface);
   border: 1.5px solid var(--color-border);
@@ -303,45 +364,77 @@ body {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
   outline: none;
 }
-
 .input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(155, 27, 48, 0.1);
+  box-shadow: 0 0 0 3px rgba(155, 28, 49, 0.1);
+}
+.input::placeholder { color: var(--color-text-muted); }
+
+/* ── Select ──────────────────────────────────────────────── */
+.select {
+  width: 100%;
+  min-height: var(--spacing-touch);
+  padding: 0.625rem 0.875rem;
+  font-size: var(--font-size-base);
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+}
+.select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(155, 28, 49, 0.1);
 }
 
-.input::placeholder {
-  color: var(--color-text-muted);
+/* ── Label ───────────────────────────────────────────────── */
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  font-family: var(--font-sans);
+  color: var(--color-text-secondary);
+  display: block;
+  margin-bottom: 0.375rem;
 }
 
-/* --- Section Title --- */
+/* ── Divider ─────────────────────────────────────────────── */
+.divider { height: 1px; background: var(--color-border); margin: 1rem 0; }
+
+/* Temple ornamental divider — subtle gold rule */
+.divider-temple {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--color-gold), transparent);
+  margin: 1.25rem 0;
+  opacity: 0.5;
+}
+
+/* ── Section Title ───────────────────────────────────────── */
 .section-title {
+  font-family: var(--font-sans);
   font-size: var(--font-size-xl);
   font-weight: 700;
   color: var(--color-text);
   margin: 0 0 0.5rem 0;
 }
 
-/* --- Divider --- */
-.divider {
-  height: 1px;
-  background: var(--color-border);
-  margin: 1rem 0;
-}
-
-/* --- Status Dot --- */
+/* ── Status Dot ──────────────────────────────────────────── */
 .status-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
+.status-dot.active   { background: var(--color-success); }
+.status-dot.warning  { background: var(--color-warning); }
+.status-dot.danger   { background: var(--color-danger); }
+.status-dot.inactive { background: var(--color-text-muted); }
 
-.status-dot.active    { background: var(--color-success); }
-.status-dot.warning   { background: var(--color-warning); }
-.status-dot.danger    { background: var(--color-danger); }
-.status-dot.inactive  { background: var(--color-text-muted); }
-
-/* --- Pilgrim App Shell --- */
+/* ============================================================
+   PILGRIM APP SHELL
+   ============================================================ */
 .pilgrim-shell {
   display: flex;
   flex-direction: column;
@@ -350,20 +443,18 @@ body {
   width: 100%;
 }
 
-/* pilgrim-content: natural block flow — browser window scrolls, NOT a container */
 .pilgrim-content {
   flex: 1;
   width: 100%;
   padding-bottom: 80px; /* space for mobile bottom nav */
 }
-
 @media (min-width: 768px) {
-  .pilgrim-content {
-    padding-bottom: 0; /* desktop has top header, no bottom nav */
-  }
+  .pilgrim-content { padding-bottom: 0; }
 }
 
-/* --- Bottom Navigation (mobile only) --- */
+/* ============================================================
+   BOTTOM NAVIGATION (mobile only)
+   ============================================================ */
 .bottom-nav {
   position: fixed;
   bottom: 0;
@@ -372,27 +463,24 @@ body {
   width: 100%;
   background: var(--color-surface);
   border-top: 1px solid var(--color-border);
-  padding: 0.5rem 0;
-  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  padding: 0.375rem 0;
+  padding-bottom: max(0.375rem, env(safe-area-inset-bottom));
   display: flex;
   align-items: center;
   justify-content: space-around;
   z-index: 50;
-  box-shadow: 0 -4px 16px rgba(26, 10, 12, 0.08);
+  box-shadow: 0 -2px 16px rgba(43, 33, 24, 0.08);
 }
-
 @media (min-width: 768px) {
-  .bottom-nav {
-    display: none !important;
-  }
+  .bottom-nav { display: none !important; }
 }
 
 .bottom-nav-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.2rem;
-  min-width: 52px;
+  gap: 0.15rem;
+  min-width: 56px;
   min-height: 52px;
   padding: 0.375rem 0.5rem;
   border-radius: var(--radius-md);
@@ -402,44 +490,129 @@ body {
   cursor: pointer;
   background: none;
   border: none;
-  font-family: inherit;
+  font-family: var(--font-sans);
+  position: relative;
 }
 
 .bottom-nav-item.active {
   color: var(--color-primary);
 }
 
+/* Active indicator line above the active item */
+.bottom-nav-item.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 25%;
+  right: 25%;
+  height: 2px;
+  background: var(--color-primary);
+  border-radius: 0 0 var(--radius-full) var(--radius-full);
+}
+
+/* Emergency item always crimson */
+.bottom-nav-item.emergency {
+  color: var(--color-danger);
+}
+.bottom-nav-item.emergency.active,
+.bottom-nav-item.emergency:hover {
+  color: #991B1B;
+}
+
 .bottom-nav-item span {
-  font-size: 0.625rem;
-  font-weight: 500;
+  font-size: 0.6rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  letter-spacing: 0.02em;
 }
 
-/* --- Page Header --- */
+/* ============================================================
+   DESKTOP HEADER
+   ============================================================ */
+.pilgrim-header {
+  background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary) 50%, var(--color-primary-dark) 100%);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle diamond pattern on header */
+.pilgrim-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M20 0 L40 20 L20 40 L0 20 Z' /%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+/* ============================================================
+   PAGE HEADER (inner page hero bars)
+   ============================================================ */
 .page-header {
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary) 100%);
   color: white;
-  padding: 1.25rem 1rem 1.25rem;
+  padding: 1.25rem 1rem;
+  position: relative;
+  overflow: hidden;
 }
 
-@media (min-width: 640px) {
-  .page-header {
-    padding: 1.5rem 1.5rem;
-  }
+.page-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M20 0 L40 20 L20 40 L0 20 Z' /%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  pointer-events: none;
 }
 
-@media (min-width: 1024px) {
-  .page-header {
-    padding: 1.5rem 2rem;
-  }
-}
+@media (min-width: 640px)  { .page-header { padding: 1.5rem; } }
+@media (min-width: 1024px) { .page-header { padding: 1.5rem 2rem; } }
 
 .page-header h1 {
   font-size: var(--font-size-xl);
   font-weight: 700;
+  font-family: var(--font-sans);
   margin: 0;
 }
 
-/* --- Category Grid Item (Home) --- */
+/* ============================================================
+   HOME PAGE — DEVOTIONAL HERO HEADER
+   ============================================================ */
+.devotional-header {
+  background: linear-gradient(
+    160deg,
+    var(--color-primary-dark) 0%,
+    var(--color-primary) 45%,
+    #B82040 75%,
+    #8B4513 100%
+  );
+  position: relative;
+  overflow: hidden;
+}
+
+/* Mandala/diamond background texture */
+.devotional-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M30 5 L55 30 L30 55 L5 30 Z M30 15 L45 30 L30 45 L15 30 Z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+/* Subtle gold shimmer line at bottom of hero */
+.devotional-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--color-gold), transparent);
+  opacity: 0.6;
+}
+
+/* ============================================================
+   HOME PAGE — CATEGORY TILES
+   ============================================================ */
 .category-tile {
   display: flex;
   flex-direction: column;
@@ -454,21 +627,19 @@ body {
   color: var(--color-text);
   transition: all 0.2s ease;
   cursor: pointer;
-  min-height: 110px;
+  min-height: 120px;
   box-shadow: var(--shadow-card);
   position: relative;
   overflow: hidden;
 }
-
-.category-tile:hover,
-.category-tile:active {
+.category-tile:hover, .category-tile:active {
   transform: scale(0.97);
   box-shadow: var(--shadow-md);
 }
 
 .category-tile-icon {
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
@@ -479,75 +650,68 @@ body {
 .category-tile-name {
   font-size: var(--font-size-sm);
   font-weight: 700;
+  font-family: var(--font-sans);
   text-align: center;
   line-height: 1.2;
 }
 
 .category-tile-caption {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: var(--color-text-muted);
   text-align: center;
-  line-height: 1.2;
+  line-height: 1.3;
 }
 
-/* Emergency tile special styling */
+/* Emergency tile styling */
 .category-tile.emergency {
-  border-color: #fecaca;
-  background: linear-gradient(135deg, #fff5f5 0%, #fef2f2 100%);
+  border-color: #FECACA;
+  background: linear-gradient(135deg, #FFF5F5 0%, #FEF2F2 100%);
 }
 
-/* --- Announcement Banner --- */
+/* ============================================================
+   ANNOUNCEMENT BANNER
+   ============================================================ */
 .announcement-urgent {
-  background: linear-gradient(90deg, #dc2626 0%, #b91c1c 100%);
+  background: linear-gradient(90deg, var(--color-danger) 0%, #9B1C1C 100%);
   color: white;
-  animation: pulse-urgent 2s ease-in-out infinite;
+  animation: pulse-urgent 2.5s ease-in-out infinite;
 }
-
 @keyframes pulse-urgent {
   0%, 100% { opacity: 1; }
-  50%       { opacity: 0.92; }
+  50%       { opacity: 0.94; }
 }
 
-/* --- MapLibre overrides --- */
-.maplibregl-map {
-  border-radius: var(--radius-lg);
-}
-
-.maplibregl-ctrl-attrib {
-  font-size: 10px !important;
-}
-
-/* --- Loading skeleton --- */
+/* ============================================================
+   LOADING SKELETON
+   ============================================================ */
 .skeleton {
-  background: linear-gradient(90deg, #f3e9ea 25%, #f9f1f2 50%, #f3e9ea 75%);
+  background: linear-gradient(90deg, #F0E4CF 25%, #FAF3E4 50%, #F0E4CF 75%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
   border-radius: var(--radius-sm);
 }
-
 @keyframes skeleton-shimmer {
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
 
-/* --- Scrollbar (webkit) --- */
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+::-webkit-scrollbar       { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
   background: var(--color-border-strong);
   border-radius: 9999px;
 }
 
-/* --- Admin layout --- */
+/* ============================================================
+   ADMIN LAYOUT
+   ============================================================ */
 .admin-shell {
   display: flex;
   min-height: 100dvh;
-  background: #f5f5f5;
+  background: #F7F3EE;   /* warm ivory — not generic gray */
 }
 
 .admin-sidebar {
@@ -569,28 +733,66 @@ body {
 }
 
 @media (max-width: 768px) {
-  .admin-sidebar {
-    display: none;
-  }
+  .admin-sidebar { display: none; }
 }
 
-/* --- Devotional gradient header for home --- */
-.devotional-header {
-  background: linear-gradient(
-    160deg,
-    var(--color-primary-dark) 0%,
-    var(--color-primary) 40%,
-    #c42444 70%,
-    var(--color-secondary-dark) 100%
-  );
-  position: relative;
-  overflow: hidden;
+/* Admin page inner header */
+.admin-page-header {
+  padding: 1rem 0 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 1.5rem;
+}
+.admin-page-header h1 {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 0.25rem;
+}
+.admin-page-header p {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin: 0;
 }
 
-.devotional-header::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-  pointer-events: none;
+/* Admin stat cards */
+.admin-stat-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  box-shadow: var(--shadow-sm);
 }
+
+/* Admin table */
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-sans);
+}
+.admin-table th {
+  text-align: left;
+  font-weight: 700;
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  padding: 0.625rem 0.875rem;
+  border-bottom: 2px solid var(--color-border);
+  background: var(--color-surface-alt);
+}
+.admin-table td {
+  padding: 0.75rem 0.875rem;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+  vertical-align: middle;
+}
+.admin-table tr:hover td { background: var(--color-surface-alt); }
+.admin-table tr:last-child td { border-bottom: none; }
+
+/* ============================================================
+   MAP OVERRIDES
+   ============================================================ */
+.maplibregl-map { border-radius: var(--radius-lg); }
+.maplibregl-ctrl-attrib { font-size: 10px !important; }

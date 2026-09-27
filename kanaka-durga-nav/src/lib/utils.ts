@@ -14,9 +14,10 @@ export function formatDistance(meters: number): string {
   return `${(meters / 1000).toFixed(1)} km`;
 }
 
-/** Format seconds as readable duration */
+/** Format seconds as readable remaining duration (always rounds up so user isn't surprised) */
 export function formatDuration(seconds: number): string {
-  const minutes = Math.round(seconds / 60);
+  if (seconds <= 0) return '0 min';
+  const minutes = Math.ceil(seconds / 60);
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);
   const remainingMin = minutes % 60;

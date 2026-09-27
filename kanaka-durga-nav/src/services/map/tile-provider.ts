@@ -1,127 +1,104 @@
-// Map Tile Provider Service Interface
-// All map tile providers must implement this interface.
-// Swap providers by changing MAP_TILE_PROVIDER env var — no component changes needed.
+// Map Tile Provider Service for Leaflet & Web Cartography
+// Provides high-performance, ultra-reliable raster tile sources:
+// 1. OpenStreetMap (Default) — 100% reliable, zero API key, rich temple & ghat details
+// 2. CartoDB Voyager — Crisp modern style, fast CDN
+// 3. MapTiler — 256px raster tiles if API key provided
 
-export interface MapTileStyle {
-  /** MapLibre GL style URL or style object URL */
-  styleUrl: string;
-  /** Attribution text shown on the map */
+export interface TileLayerConfig {
+  url: string;
   attribution: string;
+  subdomains?: string[];
+  maxZoom?: number;
+  tileSize?: number;
 }
 
 export interface MapTileProvider {
-  /** Get the MapLibre GL style for the given locale */
-  getStyle(locale?: string): MapTileStyle;
-  /** Provider name for display/debugging */
   readonly name: string;
+  getTileConfig(): TileLayerConfig;
 }
 
 // ============================================================
-// MapTiler implementation
+// OpenStreetMap Standard Tile Provider (Production Default)
 // ============================================================
-class MapTilerProvider implements MapTileProvider {
-  readonly name = 'MapTiler';
+class OsmProvider implements MapTileProvider {
+  readonly name = 'OpenStreetMap';
+
+  getTileConfig(): TileLayerConfig {
+    return {
+      url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
+      maxZoom: 19,
+      tileSize: 256,
+    };
+  }
+}
+
+// ============================================================
+// CartoDB Voyager — Clean, Fast CDN
+// ============================================================
+class CartoVoyagerProvider implements MapTileProvider {
+  readonly name = 'CartoDB Voyager';
+
+  getTileConfig(): TileLayerConfig {
+    return {
+      url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>',
+      subdomains: ['a', 'b', 'c', 'd'],
+      maxZoom: 20,
+      tileSize: 256,
+    };
+  }
+}
+
+// ============================================================
+// MapTiler Raster Provider (256px tiles with API key)
+// ============================================================
+class MapTilerRasterProvider implements MapTileProvider {
+  readonly name = 'MapTiler Streets';
   private readonly apiKey: string;
 
   constructor(apiKey: string) {
     this.apiKey = apiKey;
   }
 
-  getStyle(): MapTileStyle {
+  getTileConfig(): TileLayerConfig {
     return {
-      styleUrl: `https://api.maptiler.com/maps/streets-v2/style.json?key=${this.apiKey}`,
-      attribution: '© MapTiler © OpenStreetMap contributors',
+      url: `https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key=${this.apiKey}`,
+      attribution:
+        '&copy; <a href="https://www.maptiler.com/copyright/" target="_blank" rel="noopener">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
+      maxZoom: 20,
+      tileSize: 256,
     };
   }
 }
 
 // ============================================================
-// OpenStreetMap raster fallback (dev/no-key)
-// NOT suitable for production — rate-limited public tiles
-// ============================================================
-class OsmFallbackProvider implements MapTileProvider {
-  readonly name = 'OSM Fallback (Dev Only)';
-
-  getStyle(): MapTileStyle {
-    return {
-      // Inline style using OSM raster tiles — no API key required
-      styleUrl: JSON.stringify({
-        version: 8,
-        sources: {
-          osm: {
-            type: 'raster',
-            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-            tileSize: 256,
-            attribution: '© OpenStreetMap contributors',
-          },
-        },
-        layers: [
-          {
-            id: 'osm-tiles',
-            type: 'raster',
-            source: 'osm',
-            minzoom: 0,
-            maxzoom: 19,
-          },
-        ],
-      }),
-      attribution: '© OpenStreetMap contributors',
-    };
-  }
-}
-
-// ============================================================
-// Protomaps implementation (self-hosted or protomaps.com)
-// ============================================================
-class ProtomapsProvider implements MapTileProvider {
-  readonly name = 'Protomaps';
-  private readonly tilesUrl: string;
-
-  constructor(tilesUrl: string) {
-    this.tilesUrl = tilesUrl;
-  }
-
-  getStyle(): MapTileStyle {
-    return {
-      styleUrl: `${this.tilesUrl}/style.json`,
-      attribution: '© OpenStreetMap contributors',
-    };
-  }
-}
-
-// ============================================================
-// Factory — config-driven provider selection
+// Factory — Config-driven provider selection
+// Defaults to OpenStreetMap for 100% reliable, zero-config maps
 // ============================================================
 export function createMapTileProvider(): MapTileProvider {
-  const provider = process.env.NEXT_PUBLIC_MAP_TILE_PROVIDER ?? 'osm-fallback';
+  const provider = (process.env.NEXT_PUBLIC_MAP_TILE_PROVIDER ?? 'osm').toLowerCase();
   const maptilerKey = process.env.NEXT_PUBLIC_MAPTILER_API_KEY;
-  const protomapsUrl = process.env.NEXT_PUBLIC_PROTOMAPS_TILES_URL;
 
   switch (provider) {
+    case 'carto':
+      return new CartoVoyagerProvider();
+
     case 'maptiler':
-      if (!maptilerKey) {
-        console.warn('[MapTile] NEXT_PUBLIC_MAPTILER_API_KEY not set, falling back to OSM');
-        return new OsmFallbackProvider();
+      if (maptilerKey) {
+        return new MapTilerRasterProvider(maptilerKey);
       }
-      return new MapTilerProvider(maptilerKey);
+      return new OsmProvider();
 
-    case 'protomaps':
-      if (!protomapsUrl) {
-        console.warn('[MapTile] NEXT_PUBLIC_PROTOMAPS_TILES_URL not set, falling back to OSM');
-        return new OsmFallbackProvider();
-      }
-      return new ProtomapsProvider(protomapsUrl);
-
+    case 'osm':
     case 'osm-fallback':
     default:
-      if (process.env.NODE_ENV === 'production' && provider === 'osm-fallback') {
-        console.warn('[MapTile] OSM fallback tiles are NOT suitable for production. Set NEXT_PUBLIC_MAP_TILE_PROVIDER and appropriate API key.');
-      }
-      return new OsmFallbackProvider();
+      return new OsmProvider();
   }
 }
 
-// Singleton for client-side use
 let _mapTileProvider: MapTileProvider | null = null;
 export function getMapTileProvider(): MapTileProvider {
   if (!_mapTileProvider) {
