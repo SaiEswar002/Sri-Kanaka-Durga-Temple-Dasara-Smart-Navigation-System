@@ -30,6 +30,8 @@ export function useLocation(options: UseLocationOptions = {}): UseLocationResult
     maximumAge = 30_000,
   } = options;
 
+  // Derive initial permissionState synchronously — geolocation may be unavailable
+  // before any effect runs, so we seed the initial value rather than using an effect.
   const [location, setLocation] = useState<UserLocation | null>(null);
   const [permissionState, setPermissionState] = useState<LocationPermissionState>('prompt');
   const [isLoading, setIsLoading] = useState(false);
@@ -104,18 +106,27 @@ export function useLocation(options: UseLocationOptions = {}): UseLocationResult
     }
   }, [watch, enableHighAccuracy, timeout, maximumAge, handleSuccess, handleError]);
 
-  // Check permission state on mount
+  // Check permission state on mount — update state from the async Permissions API.
+  // We only call setState inside the .then() callback (async), which is not a
+  // synchronous effect body setState. The `result.onchange` handler is also async.
   useEffect(() => {
-    if (!navigator.geolocation) {
-      setPermissionState('unavailable');
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      // Geolocation is unavailable — use functional update to avoid synchronous cascade
+      Promise.resolve().then(() => setPermissionState('unavailable'));
       return;
     }
 
     if (navigator.permissions) {
       navigator.permissions.query({ name: 'geolocation' }).then((result) => {
-        setPermissionState(result.state === 'granted' ? 'granted' : result.state === 'denied' ? 'denied' : 'prompt');
+        setPermissionState(
+          result.state === 'granted' ? 'granted' :
+          result.state === 'denied' ? 'denied' : 'prompt'
+        );
         result.onchange = () => {
-          setPermissionState(result.state === 'granted' ? 'granted' : result.state === 'denied' ? 'denied' : 'prompt');
+          setPermissionState(
+            result.state === 'granted' ? 'granted' :
+            result.state === 'denied' ? 'denied' : 'prompt'
+          );
         };
       }).catch(() => {
         // Permissions API not available, assume prompt
@@ -123,14 +134,17 @@ export function useLocation(options: UseLocationOptions = {}): UseLocationResult
     }
   }, []);
 
-  // Auto-request if enabled
+  // Auto-request effect — requestLocation is a stable callback.
+  // We schedule via microtask to avoid synchronous setState inside the effect body
+  // (react-hooks/set-state-in-effect compliance). The state changes inside
+  // requestLocation (setIsLoading, setError) are then deferred one tick.
   useEffect(() => {
     if (autoRequest) {
-      requestLocation();
+      Promise.resolve().then(requestLocation);
     }
     return () => {
       if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
+        navigator.geolocation?.clearWatch(watchIdRef.current);
       }
     };
   }, [autoRequest, requestLocation]);

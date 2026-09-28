@@ -48,7 +48,9 @@ export function useLocationCategories() {
 // SECTORS
 // ============================================================
 export function useSectors() {
-  return useQuery({
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
     queryKey: ['sectors'],
     queryFn: async () => {
       try {
@@ -65,10 +67,27 @@ export function useSectors() {
       }
     },
   });
+
+  useEffect(() => {
+    try {
+      const channel = supabase
+        .channel('sectors_realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'sectors' }, () => {
+          queryClient.invalidateQueries({ queryKey: ['sectors'] });
+          queryClient.invalidateQueries({ queryKey: ['locations'] });
+        })
+        .subscribe();
+      return () => { try { supabase.removeChannel(channel); } catch {} };
+    } catch {}
+  }, [queryClient]);
+
+  return query;
 }
 
 export function useSubSectors(sectorId?: string) {
-  return useQuery({
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
     queryKey: ['sub_sectors', sectorId],
     queryFn: async () => {
       try {
@@ -88,6 +107,21 @@ export function useSubSectors(sectorId?: string) {
       }
     },
   });
+
+  useEffect(() => {
+    try {
+      const channel = supabase
+        .channel('sub_sectors_realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'sub_sectors' }, () => {
+          queryClient.invalidateQueries({ queryKey: ['sub_sectors'] });
+          queryClient.invalidateQueries({ queryKey: ['locations'] });
+        })
+        .subscribe();
+      return () => { try { supabase.removeChannel(channel); } catch {} };
+    } catch {}
+  }, [queryClient]);
+
+  return query;
 }
 
 // ============================================================
@@ -102,14 +136,14 @@ export function useLocations(categorySlug?: string) {
       try {
         let query = supabase
           .from('locations')
-          .select('*, category:location_categories(*), sector:sectors(*)')
+          .select('*, category:location_categories(*), sector:sectors(*), sub_sector:sub_sectors(*)')
           .in('status', ['ACTIVE', 'TEMPORARY'])
           .order('display_order');
 
         if (categorySlug) {
           query = supabase
             .from('locations')
-            .select('*, category:location_categories!inner(*), sector:sectors(*)')
+            .select('*, category:location_categories!inner(*), sector:sectors(*), sub_sector:sub_sectors(*)')
             .eq('location_categories.slug', categorySlug)
             .in('status', ['ACTIVE', 'TEMPORARY'])
             .order('display_order');
@@ -133,12 +167,18 @@ export function useLocations(categorySlug?: string) {
     },
   });
 
-  // Realtime: when admin adds/edits/deletes a location, refresh all pilgrim views
+  // Realtime: when admin adds/edits/deletes a location/sector/sub-sector, refresh all pilgrim views
   useEffect(() => {
     try {
       const channel = supabase
         .channel('locations_realtime')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, () => {
+          queryClient.invalidateQueries({ queryKey: ['locations'] });
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'sectors' }, () => {
+          queryClient.invalidateQueries({ queryKey: ['locations'] });
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'sub_sectors' }, () => {
           queryClient.invalidateQueries({ queryKey: ['locations'] });
         })
         .subscribe();
@@ -153,7 +193,7 @@ export function useLocation(id: string) {
   return useQuery({
     queryKey: ['location', id],
     queryFn: async () => {
-      if (!id) return DEMO_LOCATIONS[0];
+      if (!id) return null;
       try {
         const { data, error } = await supabase
           .from('locations')
@@ -161,12 +201,12 @@ export function useLocation(id: string) {
           .eq('id', id)
           .single();
         if (error || !data) {
-          return DEMO_LOCATIONS.find((l) => l.id === id) ?? DEMO_LOCATIONS[0];
+          return DEMO_LOCATIONS.find((l) => l.id === id) ?? null;
         }
         return data as Location;
       } catch (e) {
         console.warn('[useLocation] Supabase unavailable, using demo location:', e);
-        return DEMO_LOCATIONS.find((l) => l.id === id) ?? DEMO_LOCATIONS[0];
+        return DEMO_LOCATIONS.find((l) => l.id === id) ?? null;
       }
     },
     enabled: !!id,
@@ -433,3 +473,120 @@ export function useActiveClosures() {
 
   return query;
 }
+
+// ============================================================
+// ADMIN — ALL SECTORS (including non-public ones, for dashboard)
+// ============================================================
+export function useAdminSectors() {
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ['admin_sectors'],
+    queryFn: async () => {
+      try {
+        const { data, error } = await supabase
+          .from('sectors')
+          .select('id, name, crowd_level, status')
+          .order('display_order');
+        if (error || !data) return [] as Array<{ id: string; name: string; crowd_level: string; status: string }>;
+        return data as Array<{ id: string; name: string; crowd_level: string; status: string }>;
+      } catch {
+        return [] as Array<{ id: string; name: string; crowd_level: string; status: string }>;
+      }
+    },
+  });
+
+  useEffect(() => {
+    try {
+      const channel = supabase
+        .channel('admin_sectors_realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'sectors' }, () => {
+          queryClient.invalidateQueries({ queryKey: ['admin_sectors'] });
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'crowd_status' }, () => {
+          queryClient.invalidateQueries({ queryKey: ['admin_sectors'] });
+        })
+        .subscribe();
+      return () => { try { supabase.removeChannel(channel); } catch {} };
+    } catch {}
+  }, [queryClient]);
+
+  return query;
+}
+
+// ============================================================
+// ADMIN — EMERGENCY INCIDENTS (open/responding) with realtime
+// ============================================================
+export function useEmergencyIncidents() {
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ['emergency_incidents'],
+    queryFn: async () => {
+      try {
+        const { data, error } = await supabase
+          .from('emergency_incidents')
+          .select('*')
+          .in('status', ['OPEN', 'RESPONDING'])
+          .order('created_at', { ascending: false })
+          .limit(10);
+        if (error || !data) return [] as import('@/types').EmergencyIncident[];
+        return data as import('@/types').EmergencyIncident[];
+      } catch {
+        return [] as import('@/types').EmergencyIncident[];
+      }
+    },
+  });
+
+  useEffect(() => {
+    try {
+      const channel = supabase
+        .channel('emergency_incidents_realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'emergency_incidents' }, () => {
+          queryClient.invalidateQueries({ queryKey: ['emergency_incidents'] });
+        })
+        .subscribe();
+      return () => { try { supabase.removeChannel(channel); } catch {} };
+    } catch {}
+  }, [queryClient]);
+
+  return query;
+}
+
+// ============================================================
+// ADMIN — PARKING STATUS joined with area name, with realtime
+// ============================================================
+export function useAdminParkingStatus() {
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ['admin_parking_status'],
+    queryFn: async () => {
+      try {
+        const { data, error } = await supabase
+          .from('parking_status')
+          .select('id, parking_area_id, occupied, available, status, updated_at, parking_area:parking_areas(name)')
+          .order('updated_at', { ascending: false });
+        if (error || !data) return [] as Array<{ id: string; occupied: number; available: number; status: import('@/types').ParkingAvailabilityStatus; updated_at: string; parking_area: { name: string } | null }>;
+        return data as unknown as Array<{ id: string; occupied: number; available: number; status: import('@/types').ParkingAvailabilityStatus; updated_at: string; parking_area: { name: string } | null }>;
+      } catch {
+        return [] as Array<{ id: string; occupied: number; available: number; status: import('@/types').ParkingAvailabilityStatus; updated_at: string; parking_area: { name: string } | null }>;
+      }
+    },
+  });
+
+  useEffect(() => {
+    try {
+      const channel = supabase
+        .channel('admin_parking_status_realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_status' }, () => {
+          queryClient.invalidateQueries({ queryKey: ['admin_parking_status'] });
+        })
+        .subscribe();
+      return () => { try { supabase.removeChannel(channel); } catch {} };
+    } catch {}
+  }, [queryClient]);
+
+  return query;
+}
+

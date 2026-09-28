@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Map, Users, Car, Clock, Megaphone,
   AlertTriangle, Camera, MapPin, GitBranch, Bus, Settings, LogOut,
-  ChevronRight, Shield, Menu, X, ArrowLeft
+  ChevronRight, Shield, Menu, X, ArrowLeft, ClipboardList,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
@@ -44,8 +44,9 @@ const NAV_GROUPS = [
   {
     label: 'Admin',
     items: [
-      { href: '/admin/users',  icon: Shield,   label: 'Users & Roles' },
-      { href: '/admin/system', icon: Settings, label: 'System' },
+      { href: '/admin/users',       icon: Shield,         label: 'Users & Roles' },
+      { href: '/admin/audit-logs',  icon: ClipboardList,  label: 'Audit Logs' },
+      { href: '/admin/system',      icon: Settings,       label: 'System' },
     ],
   },
 ];
@@ -70,7 +71,7 @@ export function AdminSidebar() {
   const handleLogout = async () => {
     document.cookie = 'admin_demo=; path=/; max-age=0; SameSite=Lax';
     await supabase.auth.signOut();
-    window.location.href = '/admin/login';
+    router.push('/admin/login');
   };
 
   const navContent = (

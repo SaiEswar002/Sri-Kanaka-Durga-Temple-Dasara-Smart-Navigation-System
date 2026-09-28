@@ -17,6 +17,7 @@ interface LocationForm {
   name_te: string;
   category_id: string;
   sector_id: string;
+  sub_sector_id: string;
   status: string;
   address: string;
   description: string;
@@ -28,7 +29,7 @@ interface LocationForm {
 }
 
 const DEFAULT_FORM: LocationForm = {
-  name: '', name_te: '', category_id: '', sector_id: '', status: 'ACTIVE',
+  name: '', name_te: '', category_id: '', sector_id: '', sub_sector_id: '', status: 'ACTIVE',
   address: '', description: '', contact_phone: '', operating_hours: '',
   lat: '', lng: '', is_accessible: false,
 };
@@ -53,7 +54,7 @@ export default function AdminLocationsClient() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('locations')
-        .select('*, category:location_categories(id, name, slug), sector:sectors(id, name)')
+        .select('*, category:location_categories(id, name, slug), sector:sectors(id, name), sub_sector:sub_sectors(id, name)')
         .order('display_order');
       if (error) throw error;
       return data as Location[];
@@ -76,6 +77,16 @@ export default function AdminLocationsClient() {
     },
   });
 
+  const { data: allSubSectors } = useQuery({
+    queryKey: ['sub_sectors_for_loc'],
+    queryFn: async () => {
+      const { data } = await supabase.from('sub_sectors').select('id, name, sector_id').order('display_order');
+      return (data ?? []) as { id: string; name: string; sector_id: string }[];
+    },
+  });
+
+  const availableSubSectors = allSubSectors?.filter(s => !form.sector_id || s.sector_id === form.sector_id) ?? [];
+
   // Realtime: invalidate pilgrim map when locations change
   useEffect(() => {
     const ch = supabase.channel('admin_locations_rt')
@@ -97,6 +108,7 @@ export default function AdminLocationsClient() {
           ...f,
           position: { type: 'Point', coordinates: [lng, lat] },
           sector_id: f.sector_id || null,
+          sub_sector_id: f.sub_sector_id || null,
         }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
@@ -117,6 +129,7 @@ export default function AdminLocationsClient() {
           id, ...f,
           position: lat !== undefined && lng !== undefined ? { type: 'Point', coordinates: [lng, lat] } : undefined,
           sector_id: f.sector_id || null,
+          sub_sector_id: f.sub_sector_id || null,
         }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
@@ -141,6 +154,7 @@ export default function AdminLocationsClient() {
       name: loc.name, name_te: loc.name_te ?? '',
       category_id: loc.category_id ?? (loc.category as LocationCategory | null)?.id ?? '',
       sector_id: loc.sector_id ?? (loc.sector as Sector | null)?.id ?? '',
+      sub_sector_id: loc.sub_sector_id ?? (loc.sub_sector as { id: string } | null)?.id ?? '',
       status: loc.status, address: loc.address ?? '',
       description: loc.description ?? '',
       contact_phone: loc.contact_phone ?? '',
@@ -210,7 +224,7 @@ export default function AdminLocationsClient() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-sm font-semibold mb-1.5">Category *</label>
                   <div className="relative">
@@ -224,9 +238,19 @@ export default function AdminLocationsClient() {
                 <div>
                   <label className="block text-sm font-semibold mb-1.5">Sector</label>
                   <div className="relative">
-                    <select className="input w-full appearance-none pr-8" value={form.sector_id} onChange={e => setForm(f => ({ ...f, sector_id: e.target.value }))}>
+                    <select className="input w-full appearance-none pr-8" value={form.sector_id} onChange={e => setForm(f => ({ ...f, sector_id: e.target.value, sub_sector_id: '' }))}>
                       <option value="">None</option>
                       {sectors?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-2.5 top-3 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-1.5">Sub-Sector</label>
+                  <div className="relative">
+                    <select className="input w-full appearance-none pr-8" value={form.sub_sector_id} onChange={e => setForm(f => ({ ...f, sub_sector_id: e.target.value }))}>
+                      <option value="">None</option>
+                      {availableSubSectors.map(sub => <option key={sub.id} value={sub.id}>{sub.name}</option>)}
                     </select>
                     <ChevronDown size={14} className="absolute right-2.5 top-3 text-gray-400 pointer-events-none" />
                   </div>
@@ -318,7 +342,12 @@ export default function AdminLocationsClient() {
                       {loc.is_demo_data && <span className="text-blue-500 text-[10px] ml-1 bg-blue-50 px-1 rounded">DEMO</span>}
                     </td>
                     <td className="px-4 py-3 text-gray-600 capitalize text-xs">{cat?.name ?? '—'}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs truncate max-w-[100px]">{sec?.name ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-500 text-xs max-w-[130px]">
+                      <div className="font-medium truncate">{sec?.name ?? '—'}</div>
+                      {(loc.sub_sector as { name?: string } | null)?.name && (
+                        <div className="text-[10px] text-gray-400 truncate">↳ {(loc.sub_sector as { name: string }).name}</div>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <span className={cn('badge border text-xs', STATUS_BADGE[loc.status] ?? 'bg-gray-100 text-gray-600 border-gray-200')}>
                         {loc.status}

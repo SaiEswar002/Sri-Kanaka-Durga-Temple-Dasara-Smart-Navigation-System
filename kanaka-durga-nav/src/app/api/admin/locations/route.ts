@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { requireAdminAuth } from '@/lib/supabase/admin-auth';
 
-// GET /api/admin/locations — fetch all locations for admin
-export async function GET() {
+// GET /api/admin/locations — fetch all locations for admin (requires any admin role)
+export async function GET(req: NextRequest) {
+  const auth = await requireAdminAuth(req, null);
+  if (!auth.ok) return auth.response;
+
   try {
     const supabase = createServiceRoleClient();
     const { data, error } = await supabase
       .from('locations')
-      .select('*, category:location_categories(id, name, slug), sector:sectors(id, name)')
+      .select('*, category:location_categories(id, name, slug), sector:sectors(id, name), sub_sector:sub_sectors(id, name, slug)')
       .order('display_order');
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json(data);
@@ -18,6 +22,9 @@ export async function GET() {
 
 // POST /api/admin/locations — create location
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminAuth(req, 'locations');
+  if (!auth.ok) return auth.response;
+
   try {
     const supabase = createServiceRoleClient();
     const body = await req.json();
@@ -29,7 +36,7 @@ export async function POST(req: NextRequest) {
         name_te: body.name_te ?? body.name,
         category_id: body.category_id,
         sector_id: body.sector_id ?? null,
-        sub_sector_id: null,
+        sub_sector_id: body.sub_sector_id ?? null,
         position: body.position ?? { type: 'Point', coordinates: [80.6238, 16.5148] },
         status: body.status ?? 'ACTIVE',
         description: body.description ?? null,
@@ -57,6 +64,9 @@ export async function POST(req: NextRequest) {
 
 // PATCH /api/admin/locations — update location
 export async function PATCH(req: NextRequest) {
+  const auth = await requireAdminAuth(req, 'locations');
+  if (!auth.ok) return auth.response;
+
   try {
     const supabase = createServiceRoleClient();
     const body = await req.json();
@@ -79,6 +89,9 @@ export async function PATCH(req: NextRequest) {
 
 // DELETE /api/admin/locations?id=xxx
 export async function DELETE(req: NextRequest) {
+  const auth = await requireAdminAuth(req, 'locations');
+  if (!auth.ok) return auth.response;
+
   try {
     const supabase = createServiceRoleClient();
     const id = req.nextUrl.searchParams.get('id');

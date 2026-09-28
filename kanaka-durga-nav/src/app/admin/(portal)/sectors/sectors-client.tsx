@@ -25,6 +25,7 @@ interface Sector {
   status: Status;
   crowd_level: CrowdLevel;
   display_order: number;
+  centroid?: { type: string; coordinates: [number, number] } | null;
   is_demo_data: boolean;
   created_at: string;
 }
@@ -38,6 +39,8 @@ interface SectorForm {
   status: Status;
   crowd_level: CrowdLevel;
   display_order: number;
+  lat: number | '';
+  lng: number | '';
 }
 
 const DEFAULT_FORM: SectorForm = {
@@ -49,6 +52,8 @@ const DEFAULT_FORM: SectorForm = {
   status: 'ACTIVE',
   crowd_level: 'NORMAL',
   display_order: 0,
+  lat: '',
+  lng: '',
 };
 
 /* ─── Helpers ────────────────────────────────────────────── */
@@ -108,16 +113,21 @@ export default function SectorsClient() {
   /* ── Create / Update — via API route (service role) ─────── */
   const saveMutation = useMutation({
     mutationFn: async (payload: SectorForm) => {
+      const { lat, lng, ...rest } = payload;
+      const centroid = typeof lat === 'number' && typeof lng === 'number'
+        ? { type: 'Point', coordinates: [lng, lat] }
+        : null;
+      const body = { ...rest, centroid };
       const res = editingId
         ? await fetch('/api/admin/sectors', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: editingId, ...payload }),
+            body: JSON.stringify({ id: editingId, ...body }),
           })
         : await fetch('/api/admin/sectors', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
+            body: JSON.stringify(body),
           });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? 'Save failed');
@@ -154,6 +164,7 @@ export default function SectorsClient() {
 
   function openEdit(s: Sector) {
     setEditingId(s.id);
+    const [lng, lat] = s.centroid?.coordinates ?? ['', ''];
     setForm({
       name: s.name,
       name_te: s.name_te,
@@ -163,6 +174,8 @@ export default function SectorsClient() {
       status: s.status,
       crowd_level: s.crowd_level,
       display_order: s.display_order,
+      lat: typeof lat === 'number' ? lat : '',
+      lng: typeof lng === 'number' ? lng : '',
     });
     setError(null);
     setShowForm(true);
@@ -453,6 +466,32 @@ export default function SectorsClient() {
                     min={0}
                     value={form.display_order}
                     onChange={(e) => set('display_order', Number(e.target.value))}
+                  />
+                </div>
+              </div>
+
+              {/* Coordinates (Centroid) */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="label">Latitude (Centroid)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    className="input"
+                    value={form.lat}
+                    onChange={(e) => set('lat', e.target.value === '' ? '' : parseFloat(e.target.value))}
+                    placeholder="16.5148"
+                  />
+                </div>
+                <div>
+                  <label className="label">Longitude (Centroid)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    className="input"
+                    value={form.lng}
+                    onChange={(e) => set('lng', e.target.value === '' ? '' : parseFloat(e.target.value))}
+                    placeholder="80.6238"
                   />
                 </div>
               </div>

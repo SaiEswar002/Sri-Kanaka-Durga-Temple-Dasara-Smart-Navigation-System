@@ -2,9 +2,9 @@
 
 import { useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import { useLocations, useActiveClosures } from '@/hooks/use-data';
+import { useLocations, useActiveClosures, useSectors } from '@/hooks/use-data';
 import type { Location } from '@/types';
-import { Eye, Car, Plus, Utensils, Bus, Filter, AlertTriangle, MapPin } from 'lucide-react';
+import { Eye, Car, Plus, Utensils, Bus, Filter, AlertTriangle, MapPin, Layers } from 'lucide-react';
 
 const MapView = dynamic(
   () => import('@/components/map/map-view').then((m) => ({ default: m.MapView })),
@@ -24,14 +24,23 @@ const MapView = dynamic(
 export function AdminMapClient() {
   const { data: allLocations } = useLocations();
   const { data: closures } = useActiveClosures();
+  const { data: sectors } = useSectors();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedSector, setSelectedSector] = useState<string>('all');
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
 
   const filteredLocations = useMemo(() => {
     if (!allLocations) return [];
-    if (selectedCategory === 'all') return allLocations;
-    return allLocations.filter((l) => l.category?.slug === selectedCategory);
-  }, [allLocations, selectedCategory]);
+    return allLocations.filter((l) => {
+      const matchCat = selectedCategory === 'all' || l.category?.slug === selectedCategory;
+      const matchSec =
+        selectedSector === 'all' ||
+        l.sector_id === selectedSector ||
+        (l.sector as { id?: string; slug?: string } | null)?.id === selectedSector ||
+        (l.sector as { id?: string; slug?: string } | null)?.slug === selectedSector;
+      return matchCat && matchSec;
+    });
+  }, [allLocations, selectedCategory, selectedSector]);
 
   const FILTERS = [
     { id: 'all', label: 'All Facilities', icon: Filter },
@@ -44,32 +53,77 @@ export function AdminMapClient() {
 
   return (
     <div className="space-y-4">
-      {/* Category Filter Pills */}
-      <div className="flex flex-wrap items-center gap-2">
-        {FILTERS.map(({ id, label, icon: Icon }) => {
-          const isActive = selectedCategory === id;
-          return (
+      {/* Filters Bar: Categories & Sectors */}
+      <div className="space-y-2.5">
+        {/* Category Filter Pills */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-bold text-gray-500 mr-1 flex items-center gap-1">
+            <Filter size={13} /> Category:
+          </span>
+          {FILTERS.map(({ id, label, icon: Icon }) => {
+            const isActive = selectedCategory === id;
+            return (
+              <button
+                key={id}
+                onClick={() => setSelectedCategory(id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border shadow-xs cursor-pointer ${
+                  isActive
+                    ? 'bg-[#9b1b30] text-white border-[#7a1425] shadow-sm'
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <Icon size={14} className={isActive ? 'text-amber-300' : 'text-gray-500'} />
+                <span>{label}</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ml-1 ${
+                  isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {id === 'all'
+                    ? allLocations?.length ?? 0
+                    : allLocations?.filter((l) => l.category?.slug === id).length ?? 0}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Sector Filter Pills */}
+        {sectors && sectors.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-gray-100">
+            <span className="text-xs font-bold text-gray-500 mr-1 flex items-center gap-1">
+              <Layers size={13} /> Sector:
+            </span>
             <button
-              key={id}
-              onClick={() => setSelectedCategory(id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border shadow-xs cursor-pointer ${
-                isActive
-                  ? 'bg-[#9b1b30] text-white border-[#7a1425] shadow-sm'
-                  : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+              onClick={() => setSelectedSector('all')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border cursor-pointer ${
+                selectedSector === 'all'
+                  ? 'bg-amber-600 text-white border-amber-700'
+                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
               }`}
             >
-              <Icon size={14} className={isActive ? 'text-amber-300' : 'text-gray-500'} />
-              <span>{label}</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ml-1 ${
-                isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
-              }`}>
-                {id === 'all'
-                  ? allLocations?.length ?? 0
-                  : allLocations?.filter((l) => l.category?.slug === id).length ?? 0}
-              </span>
+              All Sectors ({allLocations?.length ?? 0})
             </button>
-          );
-        })}
+            {sectors.map((s) => {
+              const count = allLocations?.filter((l) => l.sector_id === s.id || (l.sector as { id?: string } | null)?.id === s.id).length ?? 0;
+              const isActive = selectedSector === s.id;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => setSelectedSector(s.id)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border cursor-pointer ${
+                    isActive
+                      ? 'bg-amber-600 text-white border-amber-700 font-semibold shadow-xs'
+                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  <span>{s.name}</span>
+                  <span className={`text-[10px] px-1 rounded-full font-bold ${isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Main Map Container */}
@@ -118,6 +172,23 @@ export function AdminMapClient() {
                   <p className="text-xs text-gray-500 font-medium">{selectedLocation.name_te}</p>
                 )}
               </div>
+
+              {/* Sector & Sub-Sector Info */}
+              {(selectedLocation.sector || selectedLocation.sub_sector) && (
+                <div className="bg-amber-50/70 rounded-xl p-2.5 border border-amber-200/60 space-y-1">
+                  <div className="text-[10px] font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1">
+                    <Layers size={11} /> Sector & Zone
+                  </div>
+                  <div className="text-xs font-bold text-gray-900">
+                    {(selectedLocation.sector as { name?: string } | null)?.name ?? 'Assigned Sector'}
+                  </div>
+                  {(selectedLocation.sub_sector as { name?: string } | null)?.name && (
+                    <div className="text-[11px] text-gray-600 font-medium">
+                      ↳ Sub-Sector: {(selectedLocation.sub_sector as { name: string }).name}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {selectedLocation.description && (
                 <p className="text-xs text-gray-600 leading-relaxed bg-gray-50 p-2.5 rounded-xl border border-gray-100">

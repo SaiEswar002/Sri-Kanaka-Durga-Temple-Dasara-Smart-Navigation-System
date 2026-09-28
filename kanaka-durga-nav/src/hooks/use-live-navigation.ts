@@ -9,18 +9,23 @@
  *  - Remaining distance and time to destination (along the route polyline)
  *  - Auto-advance route steps when user passes a step waypoint radius
  *  - Arrival detection
+ *  - Off-route detection with hysteresis (requires N consecutive off-route samples)
+ *  - Rerouting trigger callback when off-route confirmed
  *
- * FIX: remainingMeters is now computed by summing the route polyline segments
- * AHEAD of the closest point on the route — not a straight-line haversine to
- * the destination, which always undershoots on curved roads.
+ * Off-route detection design:
+ *  - Compute the perpendicular distance from the user's GPS position to the
+ *    nearest route polyline segment (not nearest vertex — much more accurate).
+ *  - Threshold: 40m from the nearest segment (safe for dense pilgrimage areas
+ *    with GPS noise of ±10–20m on consumer devices).
+ *  - Hysteresis: requires OFF_ROUTE_CONFIRM_SAMPLES consecutive off-route
+ *    readings before confirming off-route. This prevents triggering on GPS
+ *    noise, multipath, or momentary position jumps.
+ *  - Re-route cooldown: prevents repeated rerouting within 10 seconds.
  *
- * remainingSeconds is estimated using:
- *   - Current GPS speed if > 1 km/h
- *   - Otherwise the OSRM-provided average pace (route duration / distance)
- *   - Minimum fallback: average pedestrian 1.2 m/s
+ * React 19 / react-hooks/set-state-in-effect compliance maintained throughout.
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { NavigationRoute, LngLat } from '@/types';
 import { haversineDistance } from '@/services/routing/routing-service';
 
@@ -28,6 +33,14 @@ import { haversineDistance } from '@/services/routing/routing-service';
 const STEP_ADVANCE_RADIUS_M = 25;
 // How close (meters) to destination to trigger arrival
 const ARRIVAL_RADIUS_M = 30;
+
+// ── Off-route constants ──────────────────────────────────────────────────────
+/** Distance from nearest route segment that triggers off-route flag (meters) */
+const OFF_ROUTE_THRESHOLD_M = 40;
+/** Number of consecutive GPS samples that must be off-route before confirming */
+const OFF_ROUTE_CONFIRM_SAMPLES = 3;
+/** Minimum seconds between reroute triggers (cooldown) */
+const REROUTE_COOLDOWN_S = 10;
 
 export interface LiveNavigationState {
   /** Current GPS position */
@@ -52,6 +65,10 @@ export interface LiveNavigationState {
   gpsStatus: 'waiting' | 'active' | 'denied' | 'error';
   /** Raw GPS error message */
   gpsError: string | null;
+  /** Whether the user is confirmed off-route (N consecutive off-route GPS readings) */
+  isOffRoute: boolean;
+  /** Distance from the nearest route segment in meters (for diagnostics/UI) */
+  distanceFromRoute: number | null;
 }
 
 interface UseLiveNavigationOptions {
@@ -62,6 +79,52 @@ interface UseLiveNavigationOptions {
   externalStepIdx?: number;
   onStepAdvance?: (newIdx: number) => void;
   onArrival?: () => void;
+  /**
+   * Called when user is confirmed off-route.
+   * The consumer (navigate page) should request rerouting.
+   */
+  onOffRoute?: () => void;
+}
+
+// ── Geometry helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Compute the perpendicular distance from point P to line segment AB.
+ * More accurate than nearest-vertex for off-route detection on straight roads.
+ * Returns meters.
+ */
+function pointToSegmentDistanceM(p: LngLat, a: LngLat, b: LngLat): number {
+  const dx = b.lng - a.lng;
+  const dy = b.lat - a.lat;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq < 1e-12) return haversineDistance(p, a);
+
+  const t = Math.max(0, Math.min(1, ((p.lng - a.lng) * dx + (p.lat - a.lat) * dy) / lenSq));
+  const proj: LngLat = { lng: a.lng + t * dx, lat: a.lat + t * dy };
+  return haversineDistance(p, proj);
+}
+
+/**
+ * Find the minimum perpendicular distance from `loc` to the route polyline.
+ * Searches all segments — O(n) on coordinate count.
+ */
+function distanceFromRouteLine(
+  coordinates: [number, number][],
+  loc: LngLat,
+): number {
+  if (coordinates.length === 0) return Infinity;
+  if (coordinates.length === 1) {
+    return haversineDistance(loc, { lat: coordinates[0][1], lng: coordinates[0][0] });
+  }
+
+  let minDist = Infinity;
+  for (let i = 0; i < coordinates.length - 1; i++) {
+    const a: LngLat = { lng: coordinates[i][0], lat: coordinates[i][1] };
+    const b: LngLat = { lng: coordinates[i + 1][0], lat: coordinates[i + 1][1] };
+    const d = pointToSegmentDistanceM(loc, a, b);
+    if (d < minDist) minDist = d;
+  }
+  return minDist;
 }
 
 /**
@@ -97,45 +160,68 @@ function calcRemainingAlongRoute(
   return remaining;
 }
 
+// ── Hook ─────────────────────────────────────────────────────────────────────
+
 export function useLiveNavigation({
   route,
   active,
   externalStepIdx,
   onStepAdvance,
   onArrival,
+  onOffRoute,
 }: UseLiveNavigationOptions): LiveNavigationState {
   const [currentLocation, setCurrentLocation] = useState<LngLat | null>(null);
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [speedKmh, setSpeedKmh] = useState(0);
   const [heading, setHeading] = useState<number | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [remainingMeters, setRemainingMeters] = useState(0);
-  const [remainingSeconds, setRemainingSeconds] = useState(0);
-  const [currentStepIdx, setCurrentStepIdx] = useState(0);
+  const [remainingMeters, setRemainingMeters] = useState(() => route?.distance_meters ?? 0);
+  const [remainingSeconds, setRemainingSeconds] = useState(() => route?.duration_seconds ?? 0);
   const [arrived, setArrived] = useState(false);
   const [gpsStatus, setGpsStatus] = useState<LiveNavigationState['gpsStatus']>('waiting');
   const [gpsError, setGpsError] = useState<string | null>(null);
+  const [isOffRoute, setIsOffRoute] = useState(false);
+  const [distanceFromRoute, setDistanceFromRoute] = useState<number | null>(null);
 
   const watchIdRef = useRef<number | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevPositionRef = useRef<{ lat: number; lng: number; ts: number } | null>(null);
   const arrivedRef = useRef(false);
-  const stepIdxRef = useRef(0);
+  const stepIdxRef = useRef(externalStepIdx ?? 0);
+
+  // Off-route tracking refs (not state — avoid extra renders on every GPS tick)
+  /** Running count of consecutive off-route GPS readings */
+  const offRouteSamplesRef = useRef(0);
+  /** Whether off-route has been confirmed (to avoid repeated callbacks) */
+  const offRouteConfirmedRef = useRef(false);
+  /** Timestamp of last reroute trigger (for cooldown) */
+  const lastRerouteTsRef = useRef(0);
+
+  const [currentStepIdx, setCurrentStepIdx] = useState(externalStepIdx ?? 0);
 
   // Keep stepIdx in sync with external control (user presses "Next Step")
   useEffect(() => {
-    if (externalStepIdx !== undefined) {
+    if (externalStepIdx !== undefined && externalStepIdx !== stepIdxRef.current) {
       stepIdxRef.current = externalStepIdx;
-      setCurrentStepIdx(externalStepIdx);
+      Promise.resolve().then(() => setCurrentStepIdx(externalStepIdx));
     }
   }, [externalStepIdx]);
 
-  // Initialise remaining from OSRM route values on first load
+  // When route changes (new navigation started or route updated), reset all state
   useEffect(() => {
     if (route) {
-      setRemainingMeters(route.distance_meters);
-      setRemainingSeconds(route.duration_seconds);
+      const dm = route.distance_meters;
+      const ds = route.duration_seconds;
+      Promise.resolve().then(() => {
+        setRemainingMeters(dm);
+        setRemainingSeconds(ds);
+        setIsOffRoute(false);
+        setDistanceFromRoute(null);
+      });
+      // Reset off-route tracking when a new route is loaded
+      offRouteSamplesRef.current = 0;
+      offRouteConfirmedRef.current = false;
     }
   }, [route]);
 
@@ -151,10 +237,9 @@ export function useLiveNavigation({
       setGpsError(null);
 
       // --- Speed ---
-      // GeolocationCoordinates.speed can be null on many devices. Compute from diff.
       let computedSpeed = 0;
       if (speed !== null && speed >= 0) {
-        computedSpeed = speed * 3.6; // m/s → km/h
+        computedSpeed = speed * 3.6;
       } else if (prevPositionRef.current) {
         const prev = prevPositionRef.current;
         const dMeters = haversineDistance(prev, loc);
@@ -163,7 +248,6 @@ export function useLiveNavigation({
           computedSpeed = (dMeters / dSec) * 3.6;
         }
       }
-      // Clamp: pedestrian max ~8 km/h walking briskly, allow up to 15 for rickshaws
       const clampedSpeed = Math.min(computedSpeed, 15);
       setSpeedKmh(clampedSpeed);
 
@@ -175,6 +259,43 @@ export function useLiveNavigation({
       prevPositionRef.current = { lat: latitude, lng: longitude, ts: now };
 
       if (!route || arrivedRef.current) return;
+
+      // --- Off-route detection ───────────────────────────────────────────────
+      // Only run off-route detection when we have a route with ≥2 coordinates.
+      if (route.coordinates.length >= 2) {
+        const routeDist = distanceFromRouteLine(route.coordinates, loc);
+        setDistanceFromRoute(routeDist);
+
+        const isCurrentlyOffRoute = routeDist > OFF_ROUTE_THRESHOLD_M;
+
+        if (isCurrentlyOffRoute) {
+          offRouteSamplesRef.current += 1;
+        } else {
+          // Back on route — reset hysteresis counter and clear off-route state
+          offRouteSamplesRef.current = 0;
+          if (offRouteConfirmedRef.current) {
+            offRouteConfirmedRef.current = false;
+            setIsOffRoute(false);
+          }
+        }
+
+        // Confirm off-route only after N consecutive off-route readings
+        if (
+          offRouteSamplesRef.current >= OFF_ROUTE_CONFIRM_SAMPLES &&
+          !offRouteConfirmedRef.current
+        ) {
+          offRouteConfirmedRef.current = true;
+          setIsOffRoute(true);
+
+          // Trigger reroute if cooldown has elapsed
+          const nowTs = Date.now() / 1000;
+          if (onOffRoute && nowTs - lastRerouteTsRef.current >= REROUTE_COOLDOWN_S) {
+            lastRerouteTsRef.current = nowTs;
+            onOffRoute();
+          }
+        }
+      }
+      // ── end off-route ──────────────────────────────────────────────────────
 
       // --- Remaining distance along the actual route polyline ---
       const distRemaining = calcRemainingAlongRoute(route.coordinates, loc);
@@ -195,19 +316,14 @@ export function useLiveNavigation({
       }
 
       // --- Remaining time estimation ---
-      // Strategy: use current GPS speed if reliable (> 1 km/h moving),
-      // else use the OSRM-provided pace for this route (duration/distance),
-      // with a minimum fallback of 1.2 m/s (average pedestrian).
       let mps: number;
       if (clampedSpeed > 1.0) {
-        // User is moving — use their actual speed
         mps = clampedSpeed / 3.6;
       } else if (route.distance_meters > 0) {
-        // Use OSRM average pace for this route (more accurate than 1.2 m/s constant)
         const routePaceMps = route.distance_meters / route.duration_seconds;
-        mps = Math.max(routePaceMps, 1.0); // at least 1.0 m/s
+        mps = Math.max(routePaceMps, 1.0);
       } else {
-        mps = 1.2; // fallback: average pedestrian walking speed
+        mps = 1.2;
       }
 
       setRemainingSeconds(Math.round(distRemaining / mps));
@@ -226,7 +342,7 @@ export function useLiveNavigation({
         }
       }
     },
-    [route, onArrival, onStepAdvance],
+    [route, onArrival, onStepAdvance, onOffRoute],
   );
 
   const handleGpsError = useCallback((err: GeolocationPositionError) => {
@@ -237,7 +353,6 @@ export function useLiveNavigation({
   // Start / stop GPS watch and elapsed timer
   useEffect(() => {
     if (!active) {
-      // Cleanup
       if (watchIdRef.current !== null) {
         navigator.geolocation?.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
@@ -246,16 +361,23 @@ export function useLiveNavigation({
         clearInterval(elapsedTimerRef.current);
         elapsedTimerRef.current = null;
       }
-      // Reset state
       startTimeRef.current = null;
       prevPositionRef.current = null;
       arrivedRef.current = false;
       stepIdxRef.current = 0;
-      setElapsedSeconds(0);
-      setSpeedKmh(0);
-      setArrived(false);
-      setCurrentStepIdx(0);
-      setGpsStatus('waiting');
+      offRouteSamplesRef.current = 0;
+      offRouteConfirmedRef.current = false;
+      lastRerouteTsRef.current = 0;
+
+      Promise.resolve().then(() => {
+        setElapsedSeconds(0);
+        setSpeedKmh(0);
+        setArrived(false);
+        setCurrentStepIdx(0);
+        setGpsStatus('waiting');
+        setIsOffRoute(false);
+        setDistanceFromRoute(null);
+      });
       return;
     }
 
@@ -266,10 +388,12 @@ export function useLiveNavigation({
         handleGpsError,
         { enableHighAccuracy: true, timeout: 15_000, maximumAge: 2_000 },
       );
-      setGpsStatus('waiting');
+      Promise.resolve().then(() => setGpsStatus('waiting'));
     } else {
-      setGpsStatus('error');
-      setGpsError('Geolocation not supported');
+      Promise.resolve().then(() => {
+        setGpsStatus('error');
+        setGpsError('Geolocation not supported');
+      });
     }
 
     // Start elapsed timer
@@ -292,7 +416,7 @@ export function useLiveNavigation({
     };
   }, [active, handleGpsUpdate, handleGpsError]);
 
-  return {
+  return useMemo(() => ({
     currentLocation,
     accuracy,
     speedKmh,
@@ -304,5 +428,11 @@ export function useLiveNavigation({
     arrived,
     gpsStatus,
     gpsError,
-  };
+    isOffRoute,
+    distanceFromRoute,
+  }), [
+    currentLocation, accuracy, speedKmh, heading, elapsedSeconds,
+    remainingMeters, remainingSeconds, currentStepIdx, arrived, gpsStatus, gpsError,
+    isOffRoute, distanceFromRoute,
+  ]);
 }

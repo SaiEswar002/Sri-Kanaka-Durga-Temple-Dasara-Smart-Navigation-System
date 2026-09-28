@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { requireAdminAuth } from '@/lib/supabase/admin-auth';
 
 // POST /api/admin/crowd — update sector crowd level
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminAuth(req, 'crowd');
+  if (!auth.ok) return auth.response;
+
   try {
     const supabase = createServiceRoleClient();
     const body = await req.json();
@@ -32,6 +36,7 @@ export async function POST(req: NextRequest) {
       entity_id: sector_id,
       crowd_level,
       data_source: 'MANUAL',
+      updated_by: auth.adminId !== 'demo' ? auth.adminId : null,
       updated_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
     });

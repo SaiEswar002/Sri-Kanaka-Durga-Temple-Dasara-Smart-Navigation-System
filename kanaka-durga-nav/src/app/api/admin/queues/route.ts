@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { requireAdminAuth } from '@/lib/supabase/admin-auth';
 
 // POST /api/admin/queues — create queue or update count
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminAuth(req, 'queues');
+  if (!auth.ok) return auth.response;
+
   try {
     const supabase = createServiceRoleClient();
     const body = await req.json();
@@ -34,6 +38,9 @@ export async function POST(req: NextRequest) {
 
 // PATCH /api/admin/queues — update queue count, status, wait time
 export async function PATCH(req: NextRequest) {
+  const auth = await requireAdminAuth(req, 'queues');
+  if (!auth.ok) return auth.response;
+
   try {
     const supabase = createServiceRoleClient();
     const body = await req.json();
@@ -56,6 +63,9 @@ export async function PATCH(req: NextRequest) {
 
 // DELETE /api/admin/queues?id=xxx
 export async function DELETE(req: NextRequest) {
+  const auth = await requireAdminAuth(req, 'queues');
+  if (!auth.ok) return auth.response;
+
   try {
     const supabase = createServiceRoleClient();
     const id = req.nextUrl.searchParams.get('id');

@@ -1,46 +1,43 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { createClient } from '@/lib/supabase/client';
+/**
+ * AdminDashboardClient
+ *
+ * Previously rendered static server props that were never updated by realtime.
+ * Refactored to use TanStack Query hooks that subscribe to Supabase Realtime,
+ * so the dashboard updates live when crowd, parking, incidents, or closures change.
+ *
+ * Data flow:
+ *   DATABASE CHANGE
+ *   → SUPABASE REALTIME EVENT (postgres_changes)
+ *   → QUERY INVALIDATION (queryClient.invalidateQueries)
+ *   → TANSTACK QUERY (re-fetch)
+ *   → DASHBOARD UI UPDATE (React re-render)
+ */
+
+import {
+  useAdminSectors,
+  useEmergencyIncidents,
+  useAdminParkingStatus,
+  useActiveClosures,
+  useAnnouncements,
+} from '@/hooks/use-data';
 import {
   AlertTriangle, Car, Users, Megaphone, GitBranch,
-  CheckCircle, Clock, TrendingUp
+  CheckCircle, TrendingUp
 } from 'lucide-react';
 import { CROWD_LEVEL_CONFIG, PARKING_STATUS_CONFIG, cn } from '@/lib/utils';
-import type { Sector, Announcement, EmergencyIncident, RouteClosure, CrowdLevel, ParkingAvailabilityStatus } from '@/types';
+import type { CrowdLevel, ParkingAvailabilityStatus } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 
-interface AdminDashboardClientProps {
-  sectors: Array<{ id: string; name: string; crowd_level: CrowdLevel; status: string }>;
-  announcements: Array<{ id: string; title: string; priority: string; status: string }>;
-  incidents: EmergencyIncident[];
-  closures: RouteClosure[];
-  parkingStatus: Array<{ id: string; occupied: number; available: number; status: ParkingAvailabilityStatus; updated_at: string; parking_area?: { name: string } | null }>;
-}
-
-const supabase = createClient();
-
-export function AdminDashboardClient({ sectors, announcements, incidents, closures, parkingStatus }: AdminDashboardClientProps) {
-  const queryClient = useQueryClient();
-
-  // Set up realtime to invalidate on changes
-  useEffect(() => {
-    const channel = supabase
-      .channel('admin-dashboard-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'crowd_status' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['crowd_status'] });
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_status' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['parking_areas'] });
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'emergency_incidents' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['incidents'] });
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [queryClient]);
+export function AdminDashboardClient() {
+  // All data comes from TanStack Query + Supabase Realtime subscriptions.
+  // Each hook manages its own realtime channel internally.
+  const { data: sectors = [] } = useAdminSectors();
+  const { data: incidents = [] } = useEmergencyIncidents();
+  const { data: parkingStatus = [] } = useAdminParkingStatus();
+  const { data: closures = [] } = useActiveClosures();
+  const { data: announcements = [] } = useAnnouncements();
 
   const openIncidents = incidents.filter((i) => i.status === 'OPEN').length;
   const respondingIncidents = incidents.filter((i) => i.status === 'RESPONDING').length;
@@ -80,7 +77,7 @@ export function AdminDashboardClient({ sectors, announcements, incidents, closur
         <SummaryCard
           label="Responding"
           value={respondingIncidents}
-          icon={CheckCircle}
+          icon={TrendingUp}
           color="text-purple-600 bg-purple-50"
         />
       </div>
@@ -121,7 +118,7 @@ export function AdminDashboardClient({ sectors, announcements, incidents, closur
               <p className="text-sm text-text-muted">No parking data</p>
             )}
             {parkingStatus.map((ps) => {
-              const config = PARKING_STATUS_CONFIG[ps.status];
+              const config = PARKING_STATUS_CONFIG[ps.status as ParkingAvailabilityStatus];
               const pct = ps.available + ps.occupied > 0
                 ? Math.round((ps.available / (ps.available + ps.occupied)) * 100)
                 : 0;

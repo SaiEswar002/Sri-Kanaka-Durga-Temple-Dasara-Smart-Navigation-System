@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { requireAdminAuth } from '@/lib/supabase/admin-auth';
 
 // POST /api/admin/sectors — create a new sector
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminAuth(req, 'locations');
+  if (!auth.ok) return auth.response;
+
   try {
     const supabase = createServiceRoleClient();
     const body = await req.json();
@@ -21,6 +25,7 @@ export async function POST(req: NextRequest) {
         slug:            body.slug,
         status:          body.status          ?? 'ACTIVE',
         crowd_level:     body.crowd_level     ?? 'NORMAL',
+        centroid:        body.centroid        ?? null,
         display_order:   body.display_order   ?? 0,
         is_demo_data:    false,
         crowd_source:    'MANUAL',
@@ -37,6 +42,9 @@ export async function POST(req: NextRequest) {
 
 // PATCH /api/admin/sectors — update a sector
 export async function PATCH(req: NextRequest) {
+  const auth = await requireAdminAuth(req, 'locations');
+  if (!auth.ok) return auth.response;
+
   try {
     const supabase = createServiceRoleClient();
     const body = await req.json();
@@ -59,6 +67,9 @@ export async function PATCH(req: NextRequest) {
 
 // DELETE /api/admin/sectors?id=xxx
 export async function DELETE(req: NextRequest) {
+  const auth = await requireAdminAuth(req, 'locations');
+  if (!auth.ok) return auth.response;
+
   try {
     const supabase = createServiceRoleClient();
     const id = req.nextUrl.searchParams.get('id');

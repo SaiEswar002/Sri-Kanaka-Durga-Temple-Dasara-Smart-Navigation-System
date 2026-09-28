@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { Plus, Navigation, Phone, Clock, HeartPulse, ShieldPlus, Building2 } from 'lucide-react';
 import { useEmergencyPoints } from '@/hooks/use-data';
@@ -107,14 +108,14 @@ function getMedicalIcon(type: string) {
 }
 
 function MedicalCard({ point, locale, t }: { point: EmergencyPoint; locale: string; t: ReturnType<typeof useTranslations> }) {
-  const MedIcon = getMedicalIcon(point.emergency_type);
+  const MedIconEl = getMedicalIcon(point.emergency_type);
 
   return (
     <div className="card p-5 hover:shadow-md transition-shadow flex flex-col justify-between h-full">
       <div>
         <div className="flex items-start gap-3 mb-3">
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0 text-emerald-700 shadow-inner">
-            <MedIcon size={22} aria-hidden />
+            {MedIconEl && React.createElement(MedIconEl, { size: 22, 'aria-hidden': true })}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">

@@ -2,7 +2,6 @@
 
 import { useLocale } from '@/hooks/use-locale';
 import { cn } from '@/lib/utils';
-import { useTranslations } from 'next-intl';
 
 interface LanguageToggleProps {
   className?: string;

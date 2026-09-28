@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
@@ -38,8 +38,13 @@ export function PilgrimDesktopHeader() {
   const t = useTranslations('nav');
   const locale = useLocale();
 
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
+  // useSyncExternalStore is the React 19 idiomatic pattern for hydration guards.
+  // It avoids calling setState inside a useEffect (react-hooks/set-state-in-effect).
+  const mounted = useSyncExternalStore(
+    () => () => {},           // subscribe — no-op (no external store to subscribe to)
+    () => true,               // getSnapshot (client) — always mounted on client
+    () => false,              // getServerSnapshot — never mounted on server
+  );
 
   return (
     <header
@@ -110,7 +115,7 @@ export function PilgrimDesktopHeader() {
                       strokeWidth={isActive ? 2.5 : 2}
                       aria-hidden
                     />
-                    <span>{locale === 'te' ? labelTe : t(labelKey as any)}</span>
+                    <span>{locale === 'te' ? labelTe : t(labelKey as Parameters<typeof t>[0])}</span>
                   </Link>
                 );
               })}

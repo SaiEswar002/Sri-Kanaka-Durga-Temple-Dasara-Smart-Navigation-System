@@ -332,6 +332,10 @@ export interface NavigationRoute {
   steps: NavigationStep[];
   provider: string;
   is_mock?: boolean;
+  /** True if the route was found to pass through one or more active closures */
+  closure_conflict?: boolean;
+  /** Names of closures the route conflicts with (for user display) */
+  affected_closure_titles?: string[];
 }
 
 export interface NavigationStep {

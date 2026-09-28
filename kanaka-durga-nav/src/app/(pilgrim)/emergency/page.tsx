@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import {
   AlertTriangle, Phone, Navigation, Shield, HeartPulse, Flame, Users2, ShieldAlert, Siren
@@ -181,14 +182,14 @@ function getEmergencyIcon(type: string) {
 }
 
 function NearestHelpCard({ point, locale, t }: { point: EmergencyPoint; locale: string; t: ReturnType<typeof useTranslations> }) {
-  const HelpIcon = getEmergencyIcon(point.emergency_type);
+  const HelpIconEl = getEmergencyIcon(point.emergency_type);
 
   return (
     <div className="card p-5 hover:shadow-md transition-shadow flex flex-col justify-between h-full">
       <div>
         <div className="flex items-start gap-3.5 mb-3">
           <div className="w-12 h-12 rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center text-red-600 shrink-0 shadow-inner">
-            <HelpIcon size={22} aria-hidden />
+            {HelpIconEl && React.createElement(HelpIconEl, { size: 22, 'aria-hidden': true })}
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-bold text-base text-(--color-text) leading-snug">

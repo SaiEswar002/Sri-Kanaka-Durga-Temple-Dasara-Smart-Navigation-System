@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useLocale } from 'next-intl';
@@ -19,8 +19,12 @@ const NAV_ITEMS = [
 export function PilgrimBottomNav() {
   const pathname = usePathname();
   const locale = useLocale();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
+  // useSyncExternalStore: React 19 idiomatic hydration guard (no setState in effect)
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   if (!mounted) return null;
 
