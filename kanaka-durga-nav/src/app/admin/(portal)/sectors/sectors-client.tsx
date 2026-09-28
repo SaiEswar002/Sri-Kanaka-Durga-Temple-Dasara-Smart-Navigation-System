@@ -480,7 +480,7 @@ export default function SectorsClient() {
                     className="input"
                     value={form.lat}
                     onChange={(e) => set('lat', e.target.value === '' ? '' : parseFloat(e.target.value))}
-                    placeholder="16.5148"
+                    placeholder="16.5154"
                   />
                 </div>
                 <div>
@@ -491,7 +491,7 @@ export default function SectorsClient() {
                     className="input"
                     value={form.lng}
                     onChange={(e) => set('lng', e.target.value === '' ? '' : parseFloat(e.target.value))}
-                    placeholder="80.6238"
+                    placeholder="80.6065"
                   />
                 </div>
               </div>

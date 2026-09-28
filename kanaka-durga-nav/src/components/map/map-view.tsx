@@ -21,11 +21,17 @@ interface MapProps {
   interactive?: boolean;
   showUserLocation?: boolean;
   onMapReady?: () => void;
+  /** Fired when user manually pans or touches the map, disabling autoFollow */
+  onUserInteraction?: () => void;
+  /** Trigger counter to force recentering */
+  recenterTrigger?: number;
+  /** When true, map smoothly tracks userLocation updates */
+  autoFollow?: boolean;
 }
 
 // Default center: Indrakeeladri Hill / Sri Kanaka Durga Temple, Vijayawada
-const DEFAULT_CENTER: LngLat = { lng: 80.6238, lat: 16.5148 };
-const DEFAULT_ZOOM = 15;
+const DEFAULT_CENTER: LngLat = { lng: 80.6065, lat: 16.5154 };
+const DEFAULT_ZOOM = 16;
 
 // Cache leaflet dynamic import
 let leafletPromise: Promise<typeof import('leaflet')> | null = null;
@@ -69,12 +75,20 @@ export function MapView({
   interactive = true,
   showUserLocation: _showUserLocation = true,
   onMapReady,
+  onUserInteraction,
+  recenterTrigger,
+  autoFollow = false,
 }: MapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletType.Map | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const onUserInteractionRef = useRef(onUserInteraction);
+  useEffect(() => {
+    onUserInteractionRef.current = onUserInteraction;
+  }, [onUserInteraction]);
 
   // Layer groups and markers
   const userMarkerRef = useRef<LeafletType.Marker | null>(null);
@@ -112,7 +126,7 @@ export function MapView({
         const L = await getLeaflet();
         if (!isMounted || !mapContainer.current) return;
 
-        // Create Leaflet map with zoom animations disabled to prevent _leaflet_pos runtime errors
+        // Create Leaflet map
         const map = L.map(mapContainer.current, {
           center: [center.lat, center.lng],
           zoom,
@@ -125,6 +139,16 @@ export function MapView({
           scrollWheelZoom: interactive,
           touchZoom: interactive,
           doubleClickZoom: interactive,
+        });
+
+        // Listen for user manual pan or zoom
+        map.on('dragstart', () => {
+          onUserInteractionRef.current?.();
+        });
+        map.on('zoomstart', (e: LeafletType.LeafletEvent) => {
+          if ((e as unknown as { originalEvent?: unknown }).originalEvent) {
+            onUserInteractionRef.current?.();
+          }
         });
 
         mapRef.current = map;
@@ -213,20 +237,42 @@ export function MapView({
     };
   }, []); // Run on mount only
 
-  // 2. Center / Zoom prop updates (safe setView without flyTo matrix crash)
+  // 2. Center / Zoom prop updates (only when not auto-following active navigation to avoid overriding pan)
   useEffect(() => {
     if (!mapReady || !isMapAlive()) return;
     const map = mapRef.current;
     if (!map) return;
+    if (autoFollow) return; // In autoFollow mode, updateUser handles smooth panning
 
     try {
       map.setView([center.lat, center.lng], zoom, { animate: false });
     } catch (e) {
       console.warn('[MapView] Center update error:', e);
     }
-  }, [center.lat, center.lng, zoom, mapReady, isMapAlive]);
+  }, [center.lat, center.lng, zoom, autoFollow, mapReady, isMapAlive]);
 
-  // 3. User Location Marker
+  // 2b. Recenter trigger (explicit user button click)
+  const prevRecenterRef = useRef(recenterTrigger);
+  useEffect(() => {
+    if (recenterTrigger === undefined || recenterTrigger === 0) return;
+    if (recenterTrigger === prevRecenterRef.current) return;
+    prevRecenterRef.current = recenterTrigger;
+
+    if (!mapReady || !isMapAlive()) return;
+    const map = mapRef.current;
+    if (!map) return;
+
+    const target = userLocation ?? (destination ?? center);
+    if (target) {
+      try {
+        map.setView([target.lat, target.lng], 17, { animate: true });
+      } catch (e) {
+        console.warn('[MapView] Recenter error:', e);
+      }
+    }
+  }, [recenterTrigger, userLocation, destination, center, mapReady, isMapAlive]);
+
+  // 3. User Location Marker + Smooth Auto-Follow Pan
   useEffect(() => {
     if (!mapReady || !isMapAlive()) return;
 
@@ -264,10 +310,17 @@ export function MapView({
       } else {
         userMarkerRef.current.setLatLng([userLocation.lat, userLocation.lng]);
       }
+
+      // If autoFollow is enabled during active navigation, smoothly follow user
+      if (autoFollow) {
+        try {
+          map.panTo([userLocation.lat, userLocation.lng], { animate: true, duration: 0.5 });
+        } catch {}
+      }
     }
 
     updateUser();
-  }, [userLocation, mapReady, isMapAlive]);
+  }, [userLocation, autoFollow, mapReady, isMapAlive]);
 
   // 4. Destination Marker & Auto-framing
   useEffect(() => {

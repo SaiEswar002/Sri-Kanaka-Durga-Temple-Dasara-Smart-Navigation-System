@@ -99,8 +99,8 @@ export default function AdminLocationsClient() {
 
   const createMut = useMutation({
     mutationFn: async (f: LocationForm) => {
-      const lat = typeof f.lat === 'number' ? f.lat : 16.5148;
-      const lng = typeof f.lng === 'number' ? f.lng : 80.6238;
+      const lat = typeof f.lat === 'number' ? f.lat : 16.5154;
+      const lng = typeof f.lng === 'number' ? f.lng : 80.6065;
       const res = await fetch('/api/admin/locations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -149,7 +149,7 @@ export default function AdminLocationsClient() {
 
   function openEdit(loc: Location) {
     setEditingId(loc.id);
-    const [lng, lat] = loc.position?.coordinates ?? [80.6238, 16.5148];
+    const [lng, lat] = loc.position?.coordinates ?? [80.6065, 16.5154];
     setForm({
       name: loc.name, name_te: loc.name_te ?? '',
       category_id: loc.category_id ?? (loc.category as LocationCategory | null)?.id ?? '',
@@ -257,15 +257,44 @@ export default function AdminLocationsClient() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-semibold mb-1.5">Latitude</label>
-                  <input type="number" step="any" className="input w-full" value={form.lat} onChange={e => setForm(f => ({ ...f, lat: e.target.value === '' ? '' : parseFloat(e.target.value) }))} placeholder="16.5148" />
+              <div className="space-y-1.5">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-semibold mb-1.5">Latitude (°N)</label>
+                    <input type="number" step="any" className="input w-full" value={form.lat} onChange={e => setForm(f => ({ ...f, lat: e.target.value === '' ? '' : parseFloat(e.target.value) }))} placeholder="16.5154" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-1.5">Longitude (°E)</label>
+                    <input type="number" step="any" className="input w-full" value={form.lng} onChange={e => setForm(f => ({ ...f, lng: e.target.value === '' ? '' : parseFloat(e.target.value) }))} placeholder="80.6065" />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-semibold mb-1.5">Longitude</label>
-                  <input type="number" step="any" className="input w-full" value={form.lng} onChange={e => setForm(f => ({ ...f, lng: e.target.value === '' ? '' : parseFloat(e.target.value) }))} placeholder="80.6238" />
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[11px] text-gray-500 font-medium">Indrakeeladri Presets:</span>
+                  <button
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, lat: 16.515406, lng: 80.606534 }))}
+                    className="text-[11px] px-2 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 font-medium transition-colors"
+                  >
+                    Temple Sanctum (16.5154, 80.6065)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, lat: 16.514600, lng: 80.606800 }))}
+                    className="text-[11px] px-2 py-0.5 rounded bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                  >
+                    Main Gate / Ghat Road (16.5146, 80.6068)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, lat: 16.513500, lng: 80.609500 }))}
+                    className="text-[11px] px-2 py-0.5 rounded bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                  >
+                    Canal Road / Foot (16.5135, 80.6095)
+                  </button>
                 </div>
+                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2.5 py-1 mt-1">
+                  ⚠️ Note: Wikipedia lists 80.6215°E by mistake, which plots 1.6 km east near the Railway Station. True Indrakeeladri Hill sanctum is <strong>16.5154°N, 80.6065°E</strong>.
+                </p>
               </div>
 
               <div>

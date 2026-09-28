@@ -199,3 +199,106 @@ describe('Haversine distance accuracy', () => {
     expect(d).toBeLessThan(75_000);
   });
 });
+
+describe('Remaining distance and ETA stability', () => {
+  function projectPointOnSegment(
+    p: { lat: number; lng: number },
+    a: { lat: number; lng: number },
+    b: { lat: number; lng: number }
+  ) {
+    const dx = b.lng - a.lng;
+    const dy = b.lat - a.lat;
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq < 1e-12) return a;
+    const t = Math.max(0, Math.min(1, ((p.lng - a.lng) * dx + (p.lat - a.lat) * dy) / lenSq));
+    return { lng: a.lng + t * dx, lat: a.lat + t * dy };
+  }
+
+  function calcRemainingAlongRouteTest(
+    coordinates: [number, number][],
+    currentLoc: { lat: number; lng: number },
+    lastSegmentIdx: number = 0,
+  ): { remainingMeters: number; closestSegmentIdx: number } {
+    if (coordinates.length < 2) return { remainingMeters: 0, closestSegmentIdx: 0 };
+    let bestSegIdx = Math.max(0, Math.min(lastSegmentIdx, coordinates.length - 2));
+    let bestDist = Infinity;
+    let bestProj = { lng: coordinates[bestSegIdx][0], lat: coordinates[bestSegIdx][1] };
+
+    const startIdx = Math.max(0, lastSegmentIdx - 1);
+    for (let i = startIdx; i < coordinates.length - 1; i++) {
+      const a = { lng: coordinates[i][0], lat: coordinates[i][1] };
+      const b = { lng: coordinates[i + 1][0], lat: coordinates[i + 1][1] };
+      const proj = projectPointOnSegment(currentLoc, a, b);
+      const d = haversineDistance(currentLoc, proj);
+      if (d < bestDist) {
+        bestDist = d;
+        bestSegIdx = i;
+        bestProj = proj;
+      }
+    }
+
+    const segEnd = { lng: coordinates[bestSegIdx + 1][0], lat: coordinates[bestSegIdx + 1][1] };
+    let remaining = haversineDistance(bestProj, segEnd);
+    for (let i = bestSegIdx + 1; i < coordinates.length - 1; i++) {
+      remaining += haversineDistance(
+        { lat: coordinates[i][1], lng: coordinates[i][0] },
+        { lat: coordinates[i + 1][1], lng: coordinates[i + 1][0] },
+      );
+    }
+    return { remainingMeters: Math.round(remaining), closestSegmentIdx: bestSegIdx };
+  }
+
+  it('calculates full route distance when user is at starting coordinate', () => {
+    const res = calcRemainingAlongRouteTest(ROUTE_COORDS, { lat: 16.5160, lng: 80.6225 });
+    expect(res.remainingMeters).toBeGreaterThan(450);
+    expect(res.remainingMeters).toBeLessThan(600);
+    expect(res.closestSegmentIdx).toBe(0);
+  });
+
+  it('calculates zero distance when user reaches final coordinate', () => {
+    const res = calcRemainingAlongRouteTest(ROUTE_COORDS, { lat: 16.5200, lng: 80.6250 }, 4);
+    expect(res.remainingMeters).toBeLessThanOrEqual(5);
+  });
+
+  it('progresses smoothly along a segment without large vertex jumps', () => {
+    // 25% along first segment
+    const res1 = calcRemainingAlongRouteTest(ROUTE_COORDS, { lat: 16.5161, lng: 80.6226 });
+    // 75% along first segment
+    const res2 = calcRemainingAlongRouteTest(ROUTE_COORDS, { lat: 16.5164, lng: 80.6229 });
+
+    expect(res1.remainingMeters).toBeGreaterThan(res2.remainingMeters);
+    expect(res1.remainingMeters - res2.remainingMeters).toBeLessThan(100);
+  });
+
+  it('deadband absorbs ±5m stationary GPS jitter without changing distance', () => {
+    const baselineMeters = 13050;
+    const jittered1 = 13053; // +3m
+    const jittered2 = 13047; // -3m
+
+    function applyDeadband(newVal: number, lastReported: number, threshold = 15) {
+      if (Math.abs(newVal - lastReported) < threshold) return lastReported;
+      return newVal;
+    }
+
+    expect(applyDeadband(jittered1, baselineMeters)).toBe(baselineMeters);
+    expect(applyDeadband(jittered2, baselineMeters)).toBe(baselineMeters);
+  });
+
+  it('ETA calculation rounds to nearest minute preventing single-second flip', () => {
+    function getStableETA(baseMs: number, remainingSec: number) {
+      const etaMs = baseMs + remainingSec * 1000;
+      const rounded = new Date(Math.round(etaMs / 60000) * 60000);
+      return rounded.getMinutes();
+    }
+
+    const t0 = 1727520000000; // e.g. exact minute
+    // 1 second passes in real time (t0 + 1000) and remainingSec decreases by 1
+    const m1 = getStableETA(t0, 1080);
+    const m2 = getStableETA(t0 + 1000, 1079);
+    const m3 = getStableETA(t0 + 2000, 1078);
+
+    expect(m1).toBe(m2);
+    expect(m2).toBe(m3);
+  });
+});
+

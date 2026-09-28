@@ -128,36 +128,64 @@ function distanceFromRouteLine(
 }
 
 /**
- * Given the route polyline and a current position, find the index of the
- * closest polyline vertex, then sum all remaining segment lengths from that
- * index to the end. This gives remaining road distance instead of straight-line.
+ * Given the route polyline and a current position, project onto the closest segment,
+ * compute remaining distance along the segment to its end, then sum all subsequent segments
+ * to the destination.
+ * This guarantees smooth, sub-meter continuous road distance with no vertex-hopping jumps.
  */
 function calcRemainingAlongRoute(
   coordinates: [number, number][],
   currentLoc: LngLat,
-): number {
-  if (coordinates.length === 0) return 0;
+  lastSegmentIdx: number = 0,
+): { remainingMeters: number; closestSegmentIdx: number } {
+  if (coordinates.length === 0) return { remainingMeters: 0, closestSegmentIdx: 0 };
+  if (coordinates.length === 1) {
+    return {
+      remainingMeters: Math.round(haversineDistance(currentLoc, { lat: coordinates[0][1], lng: coordinates[0][0] })),
+      closestSegmentIdx: 0,
+    };
+  }
 
-  // Find the closest vertex on the route polyline
-  let closestIdx = 0;
-  let minDist = Infinity;
-  for (let i = 0; i < coordinates.length; i++) {
-    const d = haversineDistance(currentLoc, { lat: coordinates[i][1], lng: coordinates[i][0] });
-    if (d < minDist) {
-      minDist = d;
-      closestIdx = i;
+  let bestSegIdx = Math.max(0, Math.min(lastSegmentIdx, coordinates.length - 2));
+  let bestDist = Infinity;
+  let bestProj: LngLat = { lng: coordinates[bestSegIdx][0], lat: coordinates[bestSegIdx][1] };
+
+  // Search forward from lastSegmentIdx - 1 to maintain monotonic route progress and prevent GPS jitter jumps
+  const startIdx = Math.max(0, lastSegmentIdx - 1);
+  const endIdx = coordinates.length - 1;
+
+  for (let i = startIdx; i < endIdx; i++) {
+    const a: LngLat = { lng: coordinates[i][0], lat: coordinates[i][1] };
+    const b: LngLat = { lng: coordinates[i + 1][0], lat: coordinates[i + 1][1] };
+    const dx = b.lng - a.lng;
+    const dy = b.lat - a.lat;
+    const lenSq = dx * dx + dy * dy;
+    let proj: LngLat = a;
+    if (lenSq >= 1e-12) {
+      const t = Math.max(0, Math.min(1, ((currentLoc.lng - a.lng) * dx + (currentLoc.lat - a.lat) * dy) / lenSq));
+      proj = { lng: a.lng + t * dx, lat: a.lat + t * dy };
+    }
+    const d = haversineDistance(currentLoc, proj);
+    if (d < bestDist) {
+      bestDist = d;
+      bestSegIdx = i;
+      bestProj = proj;
     }
   }
 
-  // Sum remaining segment lengths from that vertex to the end
-  let remaining = 0;
-  for (let i = closestIdx; i < coordinates.length - 1; i++) {
+  // Distance from projected point to end of this segment
+  const segEnd: LngLat = { lng: coordinates[bestSegIdx + 1][0], lat: coordinates[bestSegIdx + 1][1] };
+  let remaining = haversineDistance(bestProj, segEnd);
+
+  // Plus sum of all subsequent segments to destination
+  for (let i = bestSegIdx + 1; i < coordinates.length - 1; i++) {
     remaining += haversineDistance(
       { lat: coordinates[i][1], lng: coordinates[i][0] },
       { lat: coordinates[i + 1][1], lng: coordinates[i + 1][0] },
     );
   }
-  return remaining;
+
+  return { remainingMeters: Math.round(remaining), closestSegmentIdx: bestSegIdx };
 }
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
@@ -190,6 +218,11 @@ export function useLiveNavigation({
   const arrivedRef = useRef(false);
   const stepIdxRef = useRef(externalStepIdx ?? 0);
 
+  // Progressive tracking & stabilization refs (prevents UI flicker on GPS jitter)
+  const lastSegmentIdxRef = useRef(0);
+  const lastReportedMetersRef = useRef<number | null>(null);
+  const lastReportedSecondsRef = useRef<number | null>(null);
+
   // Off-route tracking refs (not state — avoid extra renders on every GPS tick)
   /** Running count of consecutive off-route GPS readings */
   const offRouteSamplesRef = useRef(0);
@@ -213,6 +246,9 @@ export function useLiveNavigation({
     if (route) {
       const dm = route.distance_meters;
       const ds = route.duration_seconds;
+      lastSegmentIdxRef.current = 0;
+      lastReportedMetersRef.current = dm;
+      lastReportedSecondsRef.current = ds;
       Promise.resolve().then(() => {
         setRemainingMeters(dm);
         setRemainingSeconds(ds);
@@ -248,8 +284,9 @@ export function useLiveNavigation({
           computedSpeed = (dMeters / dSec) * 3.6;
         }
       }
-      const clampedSpeed = Math.min(computedSpeed, 15);
-      setSpeedKmh(clampedSpeed);
+      // Deadband: speeds below 1.5 km/h are considered stationary (GPS drift)
+      const displaySpeed = computedSpeed < 1.5 ? 0 : Math.min(computedSpeed, 120);
+      setSpeedKmh(Math.round(displaySpeed * 10) / 10);
 
       // --- Heading ---
       if (hdg !== null && hdg >= 0) {
@@ -297,9 +334,24 @@ export function useLiveNavigation({
       }
       // ── end off-route ──────────────────────────────────────────────────────
 
-      // --- Remaining distance along the actual route polyline ---
-      const distRemaining = calcRemainingAlongRoute(route.coordinates, loc);
-      setRemainingMeters(distRemaining);
+      // --- Remaining distance along the actual route polyline (Segment Projection) ---
+      const { remainingMeters: distRemaining, closestSegmentIdx } = calcRemainingAlongRoute(
+        route.coordinates,
+        loc,
+        lastSegmentIdxRef.current,
+      );
+      lastSegmentIdxRef.current = closestSegmentIdx;
+
+      // Hysteresis deadband: do not fluctuate distance for small GPS noise (< 15 meters)
+      const lastDist = lastReportedMetersRef.current;
+      let stableDist = distRemaining;
+      if (lastDist !== null && Math.abs(distRemaining - lastDist) < 15) {
+        stableDist = lastDist;
+      } else {
+        lastReportedMetersRef.current = distRemaining;
+        stableDist = distRemaining;
+      }
+      setRemainingMeters(stableDist);
 
       // --- Arrival detection ---
       const dest = route.coordinates[route.coordinates.length - 1];
@@ -311,22 +363,27 @@ export function useLiveNavigation({
         setArrived(true);
         setRemainingMeters(0);
         setRemainingSeconds(0);
+        lastReportedMetersRef.current = 0;
+        lastReportedSecondsRef.current = 0;
         onArrival?.();
         return;
       }
 
-      // --- Remaining time estimation ---
-      let mps: number;
-      if (clampedSpeed > 1.0) {
-        mps = clampedSpeed / 3.6;
-      } else if (route.distance_meters > 0) {
-        const routePaceMps = route.distance_meters / route.duration_seconds;
-        mps = Math.max(routePaceMps, 1.0);
-      } else {
-        mps = 1.2;
-      }
+      // --- Stable Remaining Time Estimation ---
+      // Scaled proportionally along the route based on road model duration.
+      // (Never divides full route by instantaneous jitter speed which causes wild jumps!)
+      const totalRouteDist = route.distance_meters > 0 ? route.distance_meters : 1;
+      const totalRouteSec = route.duration_seconds > 0 ? route.duration_seconds : 1;
+      const progressFraction = Math.max(0, Math.min(1, stableDist / totalRouteDist));
+      const targetSec = Math.round(totalRouteSec * progressFraction);
 
-      setRemainingSeconds(Math.round(distRemaining / mps));
+      // Only update remainingSeconds if it drifts by > 15s from route target
+      // (prevents jitter while keeping it synced with long-term driving progress)
+      const currentSec = lastReportedSecondsRef.current;
+      if (currentSec === null || Math.abs(currentSec - targetSec) > 15) {
+        lastReportedSecondsRef.current = targetSec;
+        setRemainingSeconds(targetSec);
+      }
 
       // --- Auto-advance route steps ---
       const steps = route.steps;
@@ -365,6 +422,9 @@ export function useLiveNavigation({
       prevPositionRef.current = null;
       arrivedRef.current = false;
       stepIdxRef.current = 0;
+      lastSegmentIdxRef.current = 0;
+      lastReportedMetersRef.current = null;
+      lastReportedSecondsRef.current = null;
       offRouteSamplesRef.current = 0;
       offRouteConfirmedRef.current = false;
       lastRerouteTsRef.current = 0;
@@ -396,12 +456,18 @@ export function useLiveNavigation({
       });
     }
 
-    // Start elapsed timer
+    // Start elapsed timer and smooth countdown timer
     startTimeRef.current = Date.now();
     elapsedTimerRef.current = setInterval(() => {
       if (startTimeRef.current) {
         setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000));
       }
+      setRemainingSeconds((prev) => {
+        if (prev <= 1 || arrivedRef.current) return prev;
+        const next = prev - 1;
+        lastReportedSecondsRef.current = next;
+        return next;
+      });
     }, 1000);
 
     return () => {

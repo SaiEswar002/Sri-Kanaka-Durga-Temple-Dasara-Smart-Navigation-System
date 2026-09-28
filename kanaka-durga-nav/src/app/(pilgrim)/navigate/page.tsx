@@ -45,9 +45,12 @@ function formatElapsed(secs: number): string {
 }
 
 function getETA(remainingSeconds: number): string {
-  const now = new Date();
-  now.setSeconds(now.getSeconds() + remainingSeconds);
-  return now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  if (remainingSeconds <= 0) return '--:--';
+  const now = Date.now();
+  const etaMs = now + remainingSeconds * 1000;
+  // Round to nearest minute (30s threshold) to prevent single-second minute flips
+  const roundedEta = new Date(Math.round(etaMs / 60000) * 60000);
+  return roundedEta.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 
 /** Return the SVG arrow component for a maneuver type */
@@ -193,12 +196,13 @@ interface NavBottomBarProps {
   hasNextStep: boolean;
   isOffRoute: boolean;
   isRerouting: boolean;
+  isAutoFollowing?: boolean;
 }
 
 function NavBottomBar({
   remainingSeconds, remainingMeters, elapsedSeconds,
   onStop, onRecentre, onNextStep, hasNextStep,
-  isOffRoute, isRerouting
+  isOffRoute, isRerouting, isAutoFollowing = true
 }: NavBottomBarProps) {
   return (
     <div className="absolute bottom-0 left-0 right-0" style={{ zIndex: 1100 }}>
@@ -206,10 +210,13 @@ function NavBottomBar({
       <div className="flex justify-start px-4 mb-2 pointer-events-none">
         <button
           onClick={onRecentre}
-          className="pointer-events-auto flex items-center gap-2 text-white rounded-full px-4 py-2.5 shadow-xl text-sm font-semibold active:scale-95 transition-transform"
-          style={{ background: '#7a1425', border: '1.5px solid rgba(255,215,100,0.25)', boxShadow: '0 4px 16px rgba(90,10,20,0.5)' }}
+          className={`pointer-events-auto flex items-center gap-2 text-white rounded-full px-4 py-2.5 shadow-xl text-sm font-semibold active:scale-95 transition-all ${
+            !isAutoFollowing ? 'ring-2 ring-amber-400 bg-[#8c182b] scale-105 shadow-amber-500/30' : 'bg-[#7a1425]'
+          }`}
+          style={{ border: '1.5px solid rgba(255,215,100,0.3)', boxShadow: '0 4px 16px rgba(90,10,20,0.5)' }}
+          title="Re-centre to your location"
         >
-          <Crosshair size={16} className="text-amber-300" />
+          <Crosshair size={16} className={`text-amber-300 ${!isAutoFollowing ? 'animate-pulse' : ''}`} />
           Re-centre
         </button>
       </div>
@@ -640,6 +647,13 @@ function NavigatePageContent() {
   const [acquiringGps, setAcquiringGps] = useState(false);
   const [gpsSkipped, setGpsSkipped] = useState(false);
   const [autoFollow, setAutoFollow] = useState(true);
+  const [recenterTrigger, setRecentreTrigger] = useState(0);
+
+  const handleRecentre = useCallback(() => {
+    setAutoFollow(true);
+    setRecentreTrigger((c) => c + 1);
+  }, []);
+
   // Track current destination ref for use in reroute callback
   const destLngLatRef = useRef<LngLat | null>(null);
   /** Tracks latest GPS position — updated by live nav, used in reroute callback */
@@ -871,6 +885,9 @@ function NavigatePageContent() {
           center={mapCenter}
           route={route}
           closures={closures ?? []}
+          onUserInteraction={() => setAutoFollow(false)}
+          recenterTrigger={recenterTrigger}
+          autoFollow={autoFollow}
         />
 
         {/* Top instruction overlay */}
@@ -889,11 +906,12 @@ function NavigatePageContent() {
           remainingMeters={live.remainingMeters}
           elapsedSeconds={live.elapsedSeconds}
           onStop={stopNavigation}
-          onRecentre={() => setAutoFollow(true)}
+          onRecentre={handleRecentre}
           onNextStep={goNextStep}
           hasNextStep={live.currentStepIdx < (route.steps.length - 1)}
           isOffRoute={live.isOffRoute}
           isRerouting={isRerouting}
+          isAutoFollowing={autoFollow}
         />
 
         {/* Network error / route error banners during active navigation */}

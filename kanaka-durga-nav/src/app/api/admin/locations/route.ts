@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
         category_id: body.category_id,
         sector_id: body.sector_id ?? null,
         sub_sector_id: body.sub_sector_id ?? null,
-        position: body.position ?? { type: 'Point', coordinates: [80.6238, 16.5148] },
+        position: body.position ?? { type: 'Point', coordinates: [80.6065, 16.5154] },
         status: body.status ?? 'ACTIVE',
         description: body.description ?? null,
         description_te: body.description_te ?? null,
