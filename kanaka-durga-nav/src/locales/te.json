@@ -22,13 +22,9 @@
   },
   "nav": {
     "home": "హోమ్",
-    "darshan": "దర్శనం",
     "parking": "పార్కింగ్",
     "medical": "వైద్యం",
     "food": "ఆహారం",
-    "bus": "బస్సు",
-    "emergency": "అత్యవసరం",
-    "announcements": "ప్రకటనలు",
     "map": "మ్యాప్",
     "navigate": "నావిగేట్"
   },
@@ -39,42 +35,14 @@
     "locationDenied": "లొకేషన్ షేర్ చేయలేదు",
     "locationPrompt": "మెరుగైన నావిగేషన్ కోసం లొకేషన్ షేర్ చేయండి",
     "enableLocation": "లొకేషన్ ఎనేబుల్ చేయండి",
-    "announcements": "లైవ్ ప్రకటనలు",
     "categories": {
-      "darshan": "దర్శనం",
-      "darshancaption": "క్యూ & నావిగేషన్",
       "parking": "పార్కింగ్",
       "parkingcaption": "వెతుకు & నావిగేట్",
       "medical": "వైద్యం",
       "medicalcaption": "ప్రథమ చికిత్స & సహాయం",
       "food": "ఆహారం",
-      "foodcaption": "అన్నదానం",
-      "bus": "బస్సు & షటిల్",
-      "buscaption": "మార్గాలు & స్టాప్‌లు",
-      "emergency": "అత్యవసరం",
-      "emergencycaption": "SOS & సహాయం"
+      "foodcaption": "అన్నదానం"
     }
-  },
-  "darshan": {
-    "title": "దర్శనం",
-    "queues": "ప్రస్తుత క్యూలు",
-    "waitTime": "నిరీక్షణ సమయం",
-    "minutes": "నిమి",
-    "currentCount": "క్యూలో ఉన్న వారు",
-    "status": {
-      "OPEN": "తెరవబడింది",
-      "CLOSED": "మూసివేయబడింది",
-      "SUSPENDED": "నిలిపివేయబడింది",
-      "FULL": "నిండిపోయింది"
-    },
-    "queueType": {
-      "GENERAL": "సాధారణ",
-      "SPECIAL": "ప్రత్యేక",
-      "VIP": "VIP",
-      "DIVYANG": "దివ్యాంగ",
-      "SEVAS": "సేవలు"
-    },
-    "navigate": "దర్శనానికి నావిగేట్ చేయండి"
   },
   "parking": {
     "title": "పార్కింగ్",
@@ -102,63 +70,12 @@
     "nearestHelp": "సమీపంలో వైద్య సహాయం",
     "call": "కాల్ చేయి",
     "navigate": "ఇక్కడికి నావిగేట్ చేయి",
-    "available24h": "24 గంటలు",
-    "emergencyTypes": {
-      "MEDICAL": "వైద్య శిబిరం",
-      "FIRST_AID": "ప్రథమ చికిత్స",
-      "AMBULANCE": "అంబులెన్స్",
-      "POLICE": "పోలీసు",
-      "FIRE": "అగ్నిమాపక",
-      "HELP_DESK": "సహాయ కేంద్రం",
-      "SOS_BOOTH": "SOS కేంద్రం"
-    }
+    "available24h": "24 గంటలు"
   },
   "food": {
     "title": "ఆహారం & అన్నదానం",
-    "annadanam": "ఉచిత ప్రసాదం",
+    "annadanam": "Free Prasadam",
     "navigate": "ఇక్కడికి నావిగేట్ చేయి"
-  },
-  "bus": {
-    "title": "బస్సు & షటిల్",
-    "routes": "మార్గాలు",
-    "stops": "స్టాప్‌లు",
-    "navigate": "స్టాప్‌కి నావిగేట్ చేయి"
-  },
-  "emergency": {
-    "title": "అత్యవసరం",
-    "subtitle": "తక్షణ సహాయం కావాలా?",
-    "call": "కాల్ చేయి",
-    "navigate": "మార్గం",
-    "callPolice": "పోలీసులకు కాల్ చేయి",
-    "callAmbulance": "అంబులెన్స్‌కు కాల్ చేయి",
-    "callFireService": "అగ్నిమాపక సేవలకు కాల్ చేయి",
-    "reportIncident": "సంఘటన నివేదించు",
-    "lostChild": "పోగొట్టుకున్న పిల్లవాడు",
-    "missingPerson": "తప్పిపోయిన వ్యక్తి",
-    "medicalHelp": "వైద్య అత్యవసరం",
-    "nearestHelp": "సమీపంలో సహాయం",
-    "sos": "SOS",
-    "sosDescription": "అత్యవసర అలర్ట్ కోసం నొక్కి పట్టుకోండి",
-    "disclaimer": "ప్రాణాంతక అత్యవసర పరిస్థితులలో, వెంటనే 112 కి కాల్ చేయండి",
-    "emergencyTypes": {
-      "POLICE": "పోలీస్ సహాయ కేంద్రం",
-      "MEDICAL": "వైద్య సహాయ శిబిరం",
-      "FIRST_AID": "ప్రథమ చికిత్స కేంద్రం",
-      "AMBULANCE": "అంబులెన్స్ విభాగం",
-      "FIRE": "అగ్నిమాపక కేంద్రం",
-      "HELP_DESK": "సమాచార సహాయ కేంద్రం",
-      "SOS_BOOTH": "SOS అత్యవసర కేంద్రం"
-    }
-  },
-  "announcements": {
-    "title": "ప్రకటనలు",
-    "noAnnouncements": "ప్రస్తుతం ప్రకటనలు లేవు",
-    "priority": {
-      "INFO": "సమాచారం",
-      "NOTICE": "నోటీస్",
-      "WARNING": "హెచ్చరిక",
-      "URGENT": "అత్యవసరం"
-    }
   },
   "navigate": {
     "title": "నావిగేట్",
@@ -172,7 +89,6 @@
     "routeUnavailableDesc": "రూటింగ్ సేవ తాత్కాలికంగా అందుబాటులో లేదు. దిశలకు స్వయంసేవకుడిని అడగండి.",
     "locationRequired": "నావిగేషన్ కోసం లొకేషన్ అవసరం",
     "enableLocationForNav": "దిశలు పొందడానికి లొకేషన్ ఎనేబుల్ చేయండి",
-    "closureWarning": "కొన్ని మార్గాలు మూసివేయబడ్డాయి. మార్గం సర్దుబాటు చేయబడింది.",
     "mockRouteWarning": "అంచనా మార్గం చూపిస్తోంది. లాంచ్ తర్వాత నిజమైన నావిగేషన్ అందుబాటులో ఉంటుంది."
   },
   "location": {
@@ -185,15 +101,6 @@
     "timeoutDesc": "లొకేషన్ చాలా సమయం పట్టింది. మళ్ళీ ప్రయత్నించండి.",
     "inaccurate": "లొకేషన్ ఖచ్చితత్వం తక్కువ",
     "low_accuracy": "తక్కువ ఖచ్చితత్వం"
-  },
-  "crowd": {
-    "level": {
-      "LOW": "తక్కువ జనసమూహం",
-      "NORMAL": "సాధారణం",
-      "MEDIUM": "మోస్తరు",
-      "HIGH": "అధిక జనసమూహం",
-      "CRITICAL": "చాలా జనసమూహం"
-    }
   },
   "errors": {
     "generic": "ఏదో తప్పు జరిగింది. మళ్ళీ ప్రయత్నించండి.",

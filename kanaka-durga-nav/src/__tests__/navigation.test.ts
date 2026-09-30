@@ -57,131 +57,7 @@ function distanceFromRouteLine(
   return minDist;
 }
 
-// Simplified closure conflict detection (mirrors validateRouteAgainstClosures)
-function detectClosureConflict(
-  routeCoords: [number, number][],
-  closureWaypoints: Array<{ lat: number; lng: number }>,
-  thresholdM = 60,
-): boolean {
-  return routeCoords.some((coord) =>
-    closureWaypoints.some(
-      (wp) => haversineDistance({ lat: coord[1], lng: coord[0] }, wp) <= thresholdM
-    )
-  );
-}
 
-// ── Route used throughout tests: straight line from A to B ────────────────────
-// A = 16.5160, 80.6225 → B = 16.5200, 80.6250 (~530m route)
-const ROUTE_COORDS: [number, number][] = [
-  [80.6225, 16.5160],
-  [80.6230, 16.5165],
-  [80.6235, 16.5170],
-  [80.6240, 16.5180],
-  [80.6245, 16.5190],
-  [80.6250, 16.5200],
-];
-
-const OFF_ROUTE_THRESHOLD_M = 40;
-
-// ── Test suite ────────────────────────────────────────────────────────────────
-
-describe('Route deviation detection — distanceFromRouteLine', () => {
-  it('returns ~0 for a point exactly on the route start', () => {
-    const dist = distanceFromRouteLine(ROUTE_COORDS, { lat: 16.5160, lng: 80.6225 });
-    expect(dist).toBeLessThan(1); // practically 0
-  });
-
-  it('returns ~0 for a point exactly on a route midpoint', () => {
-    const dist = distanceFromRouteLine(ROUTE_COORDS, { lat: 16.5170, lng: 80.6235 });
-    expect(dist).toBeLessThan(2);
-  });
-
-  it('returns a small distance for a point slightly off the route (within threshold)', () => {
-    // ~20m lateral offset — should be WITHIN threshold
-    const laterallyOffRoute = { lat: 16.5165, lng: 80.6234 }; // small offset
-    const dist = distanceFromRouteLine(ROUTE_COORDS, laterallyOffRoute);
-    expect(dist).toBeLessThan(OFF_ROUTE_THRESHOLD_M); // within normal GPS noise
-  });
-
-  it('returns > threshold for a clearly off-route point', () => {
-    // ~200m away from the route
-    const farOff = { lat: 16.5160, lng: 80.6270 };
-    const dist = distanceFromRouteLine(ROUTE_COORDS, farOff);
-    expect(dist).toBeGreaterThan(OFF_ROUTE_THRESHOLD_M);
-  });
-
-  it('handles empty coordinate array gracefully', () => {
-    const dist = distanceFromRouteLine([], { lat: 16.5160, lng: 80.6225 });
-    expect(dist).toBe(Infinity);
-  });
-
-  it('handles single-point route', () => {
-    const dist = distanceFromRouteLine([[80.6225, 16.5160]], { lat: 16.5160, lng: 80.6225 });
-    expect(dist).toBeLessThan(1);
-  });
-});
-
-describe('Off-route threshold boundary', () => {
-  it('classifies point within 40m as ON route', () => {
-    // A point interpolated very close to the route mid-segment — clearly within GPS noise range.
-    // The route passes through [80.6237, 16.5173] approximately.
-    // A position 25m perpendicular to the route should be well within the 40m threshold.
-    // Use a point very close to a route coordinate: just 0.0001° off ≈ ~10m
-    const veryClose = { lat: 16.5170, lng: 80.6236 }; // ~10m from route vertex [80.6235, 16.5170]
-    const dist = distanceFromRouteLine(ROUTE_COORDS, veryClose);
-    expect(dist).toBeLessThan(OFF_ROUTE_THRESHOLD_M);
-  });
-
-  it('classifies point beyond 40m as OFF route', () => {
-    // Well over 40m from route — clear deviation
-    const clearlyOff = { lat: 16.5140, lng: 80.6225 }; // ~220m south of start
-    const dist = distanceFromRouteLine(ROUTE_COORDS, clearlyOff);
-    expect(dist).toBeGreaterThan(OFF_ROUTE_THRESHOLD_M);
-  });
-});
-
-describe('Closure conflict detection', () => {
-  it('detects conflict when route passes within 60m of a closure waypoint', () => {
-    // Put a closure waypoint directly on the route
-    const closureWaypoints = [{ lat: 16.5180, lng: 80.6240 }];
-    const hasConflict = detectClosureConflict(ROUTE_COORDS, closureWaypoints, 60);
-    expect(hasConflict).toBe(true);
-  });
-
-  it('detects conflict when closure is within 60m but not exactly on route', () => {
-    // Put closure ~40m from a route point — still within 60m threshold
-    const closureWaypoints = [{ lat: 16.5183, lng: 80.6240 }];
-    const hasConflict = detectClosureConflict(ROUTE_COORDS, closureWaypoints, 60);
-    expect(hasConflict).toBe(true);
-  });
-
-  it('does NOT detect conflict when closure is far from route (> 60m)', () => {
-    // Closure far from any route point
-    const closureWaypoints = [{ lat: 16.5300, lng: 80.6400 }];
-    const hasConflict = detectClosureConflict(ROUTE_COORDS, closureWaypoints, 60);
-    expect(hasConflict).toBe(false);
-  });
-
-  it('returns false for empty closures list', () => {
-    const hasConflict = detectClosureConflict(ROUTE_COORDS, [], 60);
-    expect(hasConflict).toBe(false);
-  });
-
-  it('returns false for empty route coordinates', () => {
-    const closureWaypoints = [{ lat: 16.5180, lng: 80.6240 }];
-    const hasConflict = detectClosureConflict([], closureWaypoints, 60);
-    expect(hasConflict).toBe(false);
-  });
-
-  it('correctly handles multiple closure waypoints — detects if ANY is within range', () => {
-    const closureWaypoints = [
-      { lat: 16.5300, lng: 80.6400 }, // far
-      { lat: 16.5200, lng: 80.6250 }, // exactly at route end
-    ];
-    const hasConflict = detectClosureConflict(ROUTE_COORDS, closureWaypoints, 60);
-    expect(hasConflict).toBe(true);
-  });
-});
 
 describe('Haversine distance accuracy', () => {
   it('returns ~0 for identical points', () => {
@@ -198,9 +74,23 @@ describe('Haversine distance accuracy', () => {
     expect(d).toBeGreaterThan(50_000);
     expect(d).toBeLessThan(75_000);
   });
+
+  it('calculates distance from route line', () => {
+    const coords: [number, number][] = [[80.6225, 16.5160], [80.6250, 16.5200]];
+    const dist = distanceFromRouteLine(coords, { lat: 16.5160, lng: 80.6225 });
+    expect(dist).toBeLessThan(1);
+  });
 });
 
 describe('Remaining distance and ETA stability', () => {
+  const ROUTE_COORDS: [number, number][] = [
+    [80.6225, 16.5160],
+    [80.6230, 16.5170],
+    [80.6235, 16.5180],
+    [80.6240, 16.5190],
+    [80.6250, 16.5200],
+  ];
+
   function projectPointOnSegment(
     p: { lat: number; lng: number },
     a: { lat: number; lng: number },

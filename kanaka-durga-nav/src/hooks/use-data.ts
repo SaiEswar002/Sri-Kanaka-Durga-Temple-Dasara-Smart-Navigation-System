@@ -4,19 +4,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type {
-  Location, DarshanQueue, ParkingArea, Announcement,
-  EmergencyPoint, CrowdStatus, RouteClosure, Sector, SubSector,
+  Location, ParkingArea, Sector, SubSector,
   LocationCategory
 } from '@/types';
 import {
   DEMO_CATEGORIES,
   DEMO_SECTORS,
   DEMO_LOCATIONS,
-  DEMO_DARSHAN_QUEUES,
   DEMO_PARKING_AREAS,
-  DEMO_ANNOUNCEMENTS,
-  DEMO_EMERGENCY_POINTS,
-  DEMO_ROUTE_CLOSURES,
 } from '@/lib/mock-data';
 
 const supabase = createClient();
@@ -100,7 +95,8 @@ export function useSubSectors(sectorId?: string) {
         const { data, error } = await q;
         if (error || !data) return [];
         return data as SubSector[];
-      } catch {
+      } catch (e) {
+        console.warn('[useSubSectors] Supabase unavailable:', e);
         return [];
       }
     },
@@ -123,7 +119,7 @@ export function useSubSectors(sectorId?: string) {
 }
 
 // ============================================================
-// LOCATIONS
+// LOCATIONS — Phase 2 simplified query
 // ============================================================
 export function useLocations(categorySlug?: string) {
   const queryClient = useQueryClient();
@@ -132,20 +128,24 @@ export function useLocations(categorySlug?: string) {
     queryKey: ['locations', categorySlug],
     queryFn: async () => {
       try {
-        let q = supabase
+        let query = supabase
           .from('locations')
           .select('*, category:location_categories(*), sector:sectors(*), sub_sector:sub_sectors(*)')
-          .order('created_at');
+          .order('name');
 
         if (categorySlug) {
-          q = supabase
-            .from('locations')
-            .select('*, category:location_categories!inner(*), sector:sectors(*), sub_sector:sub_sectors(*)')
-            .eq('location_categories.slug', categorySlug)
-            .order('created_at');
+          const { data: catData } = await supabase
+            .from('location_categories')
+            .select('id')
+            .eq('slug', categorySlug)
+            .single();
+
+          if (catData) {
+            query = query.eq('category_id', catData.id);
+          }
         }
 
-        const { data, error } = await q;
+        const { data, error } = await query;
         if (error || !data || data.length === 0) {
           if (categorySlug) {
             return DEMO_LOCATIONS.filter((l) => l.category?.slug === categorySlug);
@@ -163,18 +163,11 @@ export function useLocations(categorySlug?: string) {
     },
   });
 
-  // Realtime: refresh when locations/sectors/sub-sectors change
   useEffect(() => {
     try {
       const channel = supabase
         .channel('locations_realtime')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, () => {
-          queryClient.invalidateQueries({ queryKey: ['locations'] });
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'sectors' }, () => {
-          queryClient.invalidateQueries({ queryKey: ['locations'] });
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'sub_sectors' }, () => {
           queryClient.invalidateQueries({ queryKey: ['locations'] });
         })
         .subscribe();
@@ -207,44 +200,6 @@ export function useLocation(id: string) {
     },
     enabled: !!id,
   });
-}
-
-// ============================================================
-// DARSHAN QUEUES — with realtime subscription
-// ============================================================
-export function useDarshanQueues() {
-  const queryClient = useQueryClient();
-
-  const query = useQuery({
-    queryKey: ['darshan_queues'],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase
-          .from('darshan_queues')
-          .select('*, location:locations(*, category:location_categories(*))')
-          .order('created_at');
-        if (error || !data || data.length === 0) return DEMO_DARSHAN_QUEUES;
-        return data as DarshanQueue[];
-      } catch (e) {
-        console.warn('[useDarshanQueues] Supabase unavailable, using demo queues:', e);
-        return DEMO_DARSHAN_QUEUES;
-      }
-    },
-  });
-
-  useEffect(() => {
-    try {
-      const channel = supabase
-        .channel('darshan_queues_realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'darshan_queues' }, () => {
-          queryClient.invalidateQueries({ queryKey: ['darshan_queues'] });
-        })
-        .subscribe();
-      return () => { try { supabase.removeChannel(channel); } catch {} };
-    } catch {}
-  }, [queryClient]);
-
-  return query;
 }
 
 // ============================================================
@@ -286,167 +241,7 @@ export function useParkingAreas() {
 }
 
 // ============================================================
-// ANNOUNCEMENTS — with realtime
-// ============================================================
-export function useAnnouncements() {
-  const queryClient = useQueryClient();
-
-  const query = useQuery({
-    queryKey: ['announcements'],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase
-          .from('announcements')
-          .select('*')
-          .eq('status', 'ACTIVE')
-          .lte('starts_at', new Date().toISOString())
-          .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
-          .order('priority', { ascending: false })
-          .order('starts_at', { ascending: false })
-          .limit(20);
-        if (error || !data || data.length === 0) return DEMO_ANNOUNCEMENTS;
-        return data as Announcement[];
-      } catch (e) {
-        console.warn('[useAnnouncements] Supabase unavailable, using demo announcements:', e);
-        return DEMO_ANNOUNCEMENTS;
-      }
-    },
-  });
-
-  useEffect(() => {
-    try {
-      const channel = supabase
-        .channel('announcements_realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, () => {
-          queryClient.invalidateQueries({ queryKey: ['announcements'] });
-        })
-        .subscribe();
-      return () => { try { supabase.removeChannel(channel); } catch {} };
-    } catch {}
-  }, [queryClient]);
-
-  return query;
-}
-
-// ============================================================
-// EMERGENCY POINTS
-// ============================================================
-export function useEmergencyPoints() {
-  const queryClient = useQueryClient();
-
-  const query = useQuery({
-    queryKey: ['emergency_points'],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase
-          .from('emergency_points')
-          .select('*, location:locations(*)')
-          .eq('status', 'ACTIVE')
-          .order('emergency_type');
-        if (error || !data || data.length === 0) return DEMO_EMERGENCY_POINTS;
-        return data as EmergencyPoint[];
-      } catch (e) {
-        console.warn('[useEmergencyPoints] Supabase unavailable, using demo points:', e);
-        return DEMO_EMERGENCY_POINTS;
-      }
-    },
-  });
-
-  useEffect(() => {
-    try {
-      const channel = supabase
-        .channel('emergency_points_realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'emergency_points' }, () => {
-          queryClient.invalidateQueries({ queryKey: ['emergency_points'] });
-        })
-        .subscribe();
-      return () => { try { supabase.removeChannel(channel); } catch {} };
-    } catch {}
-  }, [queryClient]);
-
-  return query;
-}
-
-// ============================================================
-// CROWD STATUS — with realtime
-// ============================================================
-export function useCrowdStatus() {
-  const queryClient = useQueryClient();
-
-  const query = useQuery({
-    queryKey: ['crowd_status'],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase
-          .from('crowd_status')
-          .select('*')
-          .order('updated_at', { ascending: false });
-        if (error || !data) return [];
-        return data as CrowdStatus[];
-      } catch {
-        return [];
-      }
-    },
-  });
-
-  useEffect(() => {
-    try {
-      const channel = supabase
-        .channel('crowd_status_realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'crowd_status' }, () => {
-          queryClient.invalidateQueries({ queryKey: ['crowd_status'] });
-          queryClient.invalidateQueries({ queryKey: ['sectors'] });
-        })
-        .subscribe();
-      return () => { try { supabase.removeChannel(channel); } catch {} };
-    } catch {}
-  }, [queryClient]);
-
-  return query;
-}
-
-// ============================================================
-// ACTIVE ROUTE CLOSURES — with realtime
-// ============================================================
-export function useActiveClosures() {
-  const queryClient = useQueryClient();
-
-  const query = useQuery({
-    queryKey: ['route_closures', 'active'],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase
-          .from('route_closures')
-          .select('*')
-          .in('status', ['SCHEDULED', 'ACTIVE'])
-          .order('created_at', { ascending: false });
-        if (error || !data || data.length === 0) return DEMO_ROUTE_CLOSURES;
-        return data as RouteClosure[];
-      } catch (e) {
-        console.warn('[useActiveClosures] Supabase unavailable, using demo closures:', e);
-        return DEMO_ROUTE_CLOSURES;
-      }
-    },
-  });
-
-  useEffect(() => {
-    try {
-      const channel = supabase
-        .channel('closures_realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'route_closures' }, () => {
-          queryClient.invalidateQueries({ queryKey: ['route_closures'] });
-        })
-        .subscribe();
-      return () => { try { supabase.removeChannel(channel); } catch {} };
-    } catch {}
-  }, [queryClient]);
-
-  return query;
-}
-
-// ============================================================
 // ADMIN — ALL SECTORS (for dashboard/selectors)
-// Phase 2: no crowd_level or status fields
 // ============================================================
 export function useAdminSectors() {
   const queryClient = useQueryClient();
@@ -475,45 +270,6 @@ export function useAdminSectors() {
           queryClient.invalidateQueries({ queryKey: ['admin_sectors'] });
           queryClient.invalidateQueries({ queryKey: ['sectors'] });
           queryClient.invalidateQueries({ queryKey: ['sub_sectors'] });
-        })
-        .subscribe();
-      return () => { try { supabase.removeChannel(channel); } catch {} };
-    } catch {}
-  }, [queryClient]);
-
-  return query;
-}
-
-// ============================================================
-// ADMIN — EMERGENCY INCIDENTS (open/responding) with realtime
-// ============================================================
-export function useEmergencyIncidents() {
-  const queryClient = useQueryClient();
-
-  const query = useQuery({
-    queryKey: ['emergency_incidents'],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase
-          .from('emergency_incidents')
-          .select('*')
-          .in('status', ['OPEN', 'RESPONDING'])
-          .order('created_at', { ascending: false })
-          .limit(10);
-        if (error || !data) return [] as import('@/types').EmergencyIncident[];
-        return data as import('@/types').EmergencyIncident[];
-      } catch {
-        return [] as import('@/types').EmergencyIncident[];
-      }
-    },
-  });
-
-  useEffect(() => {
-    try {
-      const channel = supabase
-        .channel('emergency_incidents_realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'emergency_incidents' }, () => {
-          queryClient.invalidateQueries({ queryKey: ['emergency_incidents'] });
         })
         .subscribe();
       return () => { try { supabase.removeChannel(channel); } catch {} };

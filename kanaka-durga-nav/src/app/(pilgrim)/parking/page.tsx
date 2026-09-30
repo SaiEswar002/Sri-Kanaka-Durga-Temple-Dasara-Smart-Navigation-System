@@ -1,10 +1,10 @@
 'use client';
 
 import { useTranslations, useLocale } from 'next-intl';
-import { Car, Navigation, MapPin, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Car, Navigation } from 'lucide-react';
 import { useParkingAreas } from '@/hooks/use-data';
 import { LoadingSpinner, ErrorState, EmptyState, DemoBanner } from '@/components/shared/status-components';
-import { PARKING_STATUS_CONFIG, cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import type { ParkingArea } from '@/types';
 
@@ -75,11 +75,10 @@ function ParkingCard({ area, locale, t }: { area: ParkingArea; locale: string; t
   const status = area.current_status;
   // Safe lookup — DB may return null/undefined status; always fall back to UNKNOWN
   const rawStatus = status?.status;
-  const safeStatus: keyof typeof PARKING_STATUS_CONFIG =
-    (typeof rawStatus === 'string' && rawStatus in PARKING_STATUS_CONFIG)
-      ? rawStatus as keyof typeof PARKING_STATUS_CONFIG
+  const safeStatus: 'AVAILABLE' | 'FILLING' | 'FULL' | 'CLOSED' | 'UNKNOWN' =
+    (rawStatus === 'AVAILABLE' || rawStatus === 'FILLING' || rawStatus === 'FULL' || rawStatus === 'CLOSED')
+      ? rawStatus
       : 'UNKNOWN';
-  const statusConfig = PARKING_STATUS_CONFIG[safeStatus];
   const availablePct = area.total_capacity > 0 && status
     ? Math.round((status.available / area.total_capacity) * 100)
     : null;

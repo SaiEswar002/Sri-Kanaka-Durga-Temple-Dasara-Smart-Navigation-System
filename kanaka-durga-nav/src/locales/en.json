@@ -22,13 +22,9 @@
   },
   "nav": {
     "home": "Home",
-    "darshan": "Darshan",
     "parking": "Parking",
     "medical": "Medical",
     "food": "Food",
-    "bus": "Bus",
-    "emergency": "Emergency",
-    "announcements": "Announcements",
     "map": "Map",
     "navigate": "Navigate"
   },
@@ -39,42 +35,14 @@
     "locationDenied": "Location not shared",
     "locationPrompt": "Share your location for better navigation",
     "enableLocation": "Enable Location",
-    "announcements": "Live Announcements",
     "categories": {
-      "darshan": "Darshan",
-      "darshancaption": "Queue & Navigation",
       "parking": "Parking",
       "parkingcaption": "Find & Navigate",
       "medical": "Medical",
       "medicalcaption": "First Aid & Help",
       "food": "Food",
-      "foodcaption": "Annadanam",
-      "bus": "Bus & Shuttle",
-      "buscaption": "Routes & Stops",
-      "emergency": "Emergency",
-      "emergencycaption": "SOS & Help"
+      "foodcaption": "Annadanam"
     }
-  },
-  "darshan": {
-    "title": "Darshan",
-    "queues": "Current Queues",
-    "waitTime": "Wait Time",
-    "minutes": "min",
-    "currentCount": "People in queue",
-    "status": {
-      "OPEN": "Open",
-      "CLOSED": "Closed",
-      "SUSPENDED": "Suspended",
-      "FULL": "Full"
-    },
-    "queueType": {
-      "GENERAL": "General",
-      "SPECIAL": "Special",
-      "VIP": "VIP",
-      "DIVYANG": "Divyang",
-      "SEVAS": "Sevas"
-    },
-    "navigate": "Navigate to Darshan"
   },
   "parking": {
     "title": "Parking",
@@ -102,63 +70,12 @@
     "nearestHelp": "Nearest Medical Help",
     "call": "Call",
     "navigate": "Navigate Here",
-    "available24h": "24 Hours",
-    "emergencyTypes": {
-      "MEDICAL": "Medical Camp",
-      "FIRST_AID": "First Aid",
-      "AMBULANCE": "Ambulance",
-      "POLICE": "Police",
-      "FIRE": "Fire",
-      "HELP_DESK": "Help Desk",
-      "SOS_BOOTH": "SOS Booth"
-    }
+    "available24h": "24 Hours"
   },
   "food": {
     "title": "Food & Annadanam",
     "annadanam": "Free Prasadam",
     "navigate": "Navigate Here"
-  },
-  "bus": {
-    "title": "Bus & Shuttle",
-    "routes": "Routes",
-    "stops": "Stops",
-    "navigate": "Navigate to Stop"
-  },
-  "emergency": {
-    "title": "Emergency",
-    "subtitle": "Need immediate help?",
-    "call": "Call",
-    "navigate": "Navigate",
-    "callPolice": "Call Police",
-    "callAmbulance": "Call Ambulance",
-    "callFireService": "Call Fire Service",
-    "reportIncident": "Report Incident",
-    "lostChild": "Lost Child",
-    "missingPerson": "Missing Person",
-    "medicalHelp": "Medical Emergency",
-    "nearestHelp": "Nearest Help",
-    "sos": "SOS",
-    "sosDescription": "Press and hold for emergency alert",
-    "disclaimer": "For life-threatening emergencies, call 112 immediately",
-    "emergencyTypes": {
-      "POLICE": "Police Post",
-      "MEDICAL": "Medical Aid Station",
-      "FIRST_AID": "First Aid Post",
-      "AMBULANCE": "Ambulance Unit",
-      "FIRE": "Fire Rescue Post",
-      "HELP_DESK": "Information Help Desk",
-      "SOS_BOOTH": "SOS Emergency Booth"
-    }
-  },
-  "announcements": {
-    "title": "Announcements",
-    "noAnnouncements": "No announcements at this time",
-    "priority": {
-      "INFO": "Info",
-      "NOTICE": "Notice",
-      "WARNING": "Warning",
-      "URGENT": "URGENT"
-    }
   },
   "navigate": {
     "title": "Navigate",
@@ -172,7 +89,6 @@
     "routeUnavailableDesc": "Routing service is temporarily unavailable. Please ask a volunteer for directions.",
     "locationRequired": "Location needed for navigation",
     "enableLocationForNav": "Please enable location to get directions",
-    "closureWarning": "Some paths are closed. Route has been adjusted.",
     "mockRouteWarning": "Showing estimated route. Real navigation will be available after launch."
   },
   "location": {
@@ -185,15 +101,6 @@
     "timeoutDesc": "Location took too long. Please try again.",
     "inaccurate": "Location inaccurate",
     "low_accuracy": "Low accuracy location"
-  },
-  "crowd": {
-    "level": {
-      "LOW": "Low Crowd",
-      "NORMAL": "Normal",
-      "MEDIUM": "Moderate",
-      "HIGH": "High Crowd",
-      "CRITICAL": "Very Crowded"
-    }
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",

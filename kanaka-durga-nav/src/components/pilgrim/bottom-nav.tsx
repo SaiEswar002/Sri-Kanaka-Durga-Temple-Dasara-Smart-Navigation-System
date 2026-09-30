@@ -4,16 +4,15 @@ import { useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useLocale } from 'next-intl';
-import { Home, Eye, Car, Cross, Bus, AlertTriangle } from 'lucide-react';
+import { Home, Navigation, Car, Cross, Utensils } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
-  { href: '/',          icon: Home,          label: 'Home',       labelTe: 'హోమ్',       isEmergency: false },
-  { href: '/darshan',   icon: Eye,           label: 'Darshan',    labelTe: 'దర్శనం',     isEmergency: false },
-  { href: '/parking',   icon: Car,           label: 'Parking',    labelTe: 'పార్కింగ్',   isEmergency: false },
-  { href: '/medical',   icon: Cross,         label: 'Medical',    labelTe: 'వైద్యం',      isEmergency: false },
-  { href: '/bus',       icon: Bus,           label: 'Bus',        labelTe: 'బస్సు',       isEmergency: false },
-  { href: '/emergency', icon: AlertTriangle, label: 'SOS',        labelTe: 'SOS',         isEmergency: true  },
+  { href: '/',         icon: Home,       label: 'Home',       labelTe: 'హోమ్' },
+  { href: '/navigate', icon: Navigation, label: 'Map',        labelTe: 'మ్యాప్' },
+  { href: '/parking',  icon: Car,        label: 'Parking',    labelTe: 'పార్కింగ్' },
+  { href: '/medical',  icon: Cross,      label: 'Medical',    labelTe: 'వైద్యం' },
+  { href: '/food',     icon: Utensils,   label: 'Annadanam',  labelTe: 'అన్నదానం' },
 ] as const;
 
 export function PilgrimBottomNav() {
@@ -30,7 +29,7 @@ export function PilgrimBottomNav() {
 
   return (
     <nav className="bottom-nav" role="navigation" aria-label="Main navigation">
-      {NAV_ITEMS.map(({ href, icon: Icon, label, labelTe, isEmergency }) => {
+      {NAV_ITEMS.map(({ href, icon: Icon, label, labelTe }) => {
         const isActive = pathname === href;
         return (
           <Link
@@ -38,23 +37,12 @@ export function PilgrimBottomNav() {
             href={href}
             className={cn(
               'bottom-nav-item',
-              isActive && 'active',
-              isEmergency && 'emergency'
+              isActive && 'active'
             )}
             aria-label={locale === 'te' ? labelTe : label}
             aria-current={isActive ? 'page' : undefined}
           >
-            {/* Emergency gets a special pill background */}
-            {isEmergency ? (
-              <div
-                className="flex items-center justify-center w-10 h-8 rounded-lg mb-0.5"
-                style={{ background: 'rgba(198, 40, 40, 0.1)' }}
-              >
-                <Icon size={20} strokeWidth={isActive ? 2.5 : 2} aria-hidden="true" />
-              </div>
-            ) : (
-              <Icon size={22} strokeWidth={isActive ? 2.5 : 1.8} aria-hidden="true" />
-            )}
+            <Icon size={22} strokeWidth={isActive ? 2.5 : 1.8} aria-hidden="true" />
             <span>{locale === 'te' ? labelTe : label}</span>
           </Link>
         );

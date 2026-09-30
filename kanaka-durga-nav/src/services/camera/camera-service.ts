@@ -3,7 +3,7 @@
 // The real camera API is not yet chosen — this interface defines the contract.
 // See CAMERA-API-INTEGRATION.md for the full integration guide.
 
-import type { UUID, CrowdLevel } from '@/types';
+import type { UUID } from '@/types';
 
 export interface CameraEventPayload {
   camera_id: UUID;
@@ -12,7 +12,6 @@ export interface CameraEventPayload {
   timestamp: string; // ISO 8601
   data: {
     count?: number;
-    crowd_level?: CrowdLevel;
     confidence?: number;
     zone_id?: string;
     raw?: unknown; // vendor-specific raw payload

@@ -7,24 +7,10 @@ export type Timestamp = string; // ISO 8601
 // ============================================================
 // ENUMS
 // ============================================================
-// NOTE: SectorStatus / LocationStatus removed — sectors and locations
-// no longer carry operational status fields. CrowdLevel stays because
-// crowd_status table still uses it as an operational concept.
-export type CrowdLevel = 'LOW' | 'NORMAL' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-export type QueueType = 'GENERAL' | 'SPECIAL' | 'VIP' | 'DIVYANG' | 'SEVAS';
-export type QueueStatus = 'OPEN' | 'CLOSED' | 'SUSPENDED' | 'FULL';
 export type ParkingType = 'PUBLIC' | 'RESERVED' | 'EMERGENCY' | 'SHUTTLE';
 export type ParkingAvailabilityStatus = 'AVAILABLE' | 'FILLING' | 'FULL' | 'CLOSED' | 'UNKNOWN';
-export type ClosureType = 'PEDESTRIAN' | 'VEHICLE' | 'ALL';
-export type ClosureStatus = 'SCHEDULED' | 'ACTIVE' | 'RESOLVED' | 'CANCELLED';
-export type AnnouncementPriority = 'INFO' | 'NOTICE' | 'WARNING' | 'URGENT';
-export type AnnouncementStatus = 'DRAFT' | 'ACTIVE' | 'EXPIRED' | 'ARCHIVED';
-export type EmergencyType = 'POLICE' | 'MEDICAL' | 'FIRE' | 'HELP_DESK' | 'FIRST_AID' | 'AMBULANCE' | 'SOS_BOOTH';
-export type IncidentType = 'MEDICAL' | 'SECURITY' | 'FIRE' | 'CROWD_CRUSH' | 'MISSING_PERSON' | 'LOST_CHILD' | 'OTHER';
-export type IncidentStatus = 'OPEN' | 'RESPONDING' | 'RESOLVED' | 'CANCELLED';
-export type IncidentPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type DataSource = 'MANUAL' | 'CAMERA' | 'SENSOR' | 'ESTIMATE';
-export type AdminRole = 'SUPER_ADMIN' | 'OPERATIONS_ADMIN' | 'CROWD_MANAGER' | 'FACILITY_MANAGER' | 'VIEW_ONLY';
+export type AdminRole = 'SUPER_ADMIN' | 'OPERATIONS_ADMIN' | 'FACILITY_MANAGER' | 'VIEW_ONLY';
 export type CameraType = 'FIXED' | 'PTZ' | 'MOBILE' | 'DRONE';
 export type CameraStatus = 'ACTIVE' | 'INACTIVE' | 'FAULT' | 'MAINTENANCE' | 'OFFLINE';
 
@@ -52,7 +38,7 @@ export interface LngLat {
 }
 
 // ============================================================
-// CORE DB TYPES — Phase 2 simplified models
+// CORE DB TYPES — Simplified models
 // ============================================================
 
 /**
@@ -121,27 +107,6 @@ export interface Location {
   sub_sector?: SubSector | null;
 }
 
-export interface DarshanQueue {
-  id: UUID;
-  location_id: UUID;
-  name: string;
-  name_te: string;
-  queue_type: QueueType;
-  status: QueueStatus;
-  current_count: number;
-  max_capacity: number | null;
-  estimated_wait_minutes: number | null;
-  entry_point: GeoPoint | null;
-  exit_point: GeoPoint | null;
-  notes: string | null;
-  notes_te: string | null;
-  is_demo_data: boolean;
-  updated_at: Timestamp;
-  created_at: Timestamp;
-  // Joined
-  location?: Location;
-}
-
 export interface ParkingArea {
   id: UUID;
   location_id: UUID | null;
@@ -173,100 +138,6 @@ export interface ParkingStatus {
   data_source: DataSource;
   updated_by: UUID | null;
   updated_at: Timestamp;
-}
-
-export interface RouteClosure {
-  id: UUID;
-  title: string;
-  title_te: string;
-  reason: string | null;
-  reason_te: string | null;
-  closure_type: ClosureType;
-  affected_area: GeoPolygon | null;
-  closure_line: GeoLineString | null;
-  waypoints: unknown | null;
-  status: ClosureStatus;
-  start_time: Timestamp;
-  end_time: Timestamp | null;
-  created_by: UUID | null;
-  sector_id: UUID | null;
-  sub_sector_id: UUID | null;
-  is_demo_data: boolean;
-  created_at: Timestamp;
-  updated_at: Timestamp;
-}
-
-export interface Announcement {
-  id: UUID;
-  title: string;
-  title_te: string;
-  message: string;
-  message_te: string;
-  priority: AnnouncementPriority;
-  status: AnnouncementStatus;
-  target_audience: string;
-  sector_id: UUID | null;
-  starts_at: Timestamp;
-  expires_at: Timestamp | null;
-  created_by: UUID | null;
-  is_demo_data: boolean;
-  created_at: Timestamp;
-  updated_at: Timestamp;
-}
-
-export interface EmergencyPoint {
-  id: UUID;
-  location_id: UUID;
-  emergency_type: EmergencyType;
-  name: string;
-  name_te: string;
-  contact_phone: string | null;
-  contact_phone_2: string | null;
-  is_24h: boolean;
-  status: string;
-  is_demo_data: boolean;
-  created_at: Timestamp;
-  updated_at: Timestamp;
-  // Joined
-  location?: Location;
-}
-
-export interface EmergencyIncident {
-  id: UUID;
-  incident_type: IncidentType;
-  title: string;
-  description: string | null;
-  location_text: string | null;
-  position: GeoPoint | null;
-  sector_id: UUID | null;
-  sub_sector_id: UUID | null;
-  status: IncidentStatus;
-  priority: IncidentPriority;
-  reported_by: string | null;
-  assigned_to: string | null;
-  response_notes: string | null;
-  resolved_at: Timestamp | null;
-  resolution_time_minutes: number | null;
-  created_by: UUID | null;
-  is_demo_data: boolean;
-  created_at: Timestamp;
-  updated_at: Timestamp;
-}
-
-export interface CrowdStatus {
-  id: UUID;
-  entity_type: 'SECTOR' | 'SUB_SECTOR';
-  entity_id: UUID;
-  crowd_level: CrowdLevel;
-  estimated_count: number | null;
-  capacity: number | null;
-  occupancy_pct: number | null;
-  data_source: DataSource;
-  camera_id: UUID | null;
-  source_metadata: Record<string, unknown>;
-  updated_by: UUID | null;
-  updated_at: Timestamp;
-  created_at: Timestamp;
 }
 
 export interface Camera {
@@ -319,10 +190,6 @@ export interface NavigationRoute {
   steps: NavigationStep[];
   provider: string;
   is_mock?: boolean;
-  /** True if the route was found to pass through one or more active closures */
-  closure_conflict?: boolean;
-  /** Names of closures the route conflicts with (for user display) */
-  affected_closure_titles?: string[];
 }
 
 export interface NavigationStep {

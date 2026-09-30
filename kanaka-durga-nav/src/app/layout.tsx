@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     template: '%s | Kanaka Durga Nav',
   },
   description:
-    'Smart pilgrim navigation system for Sri Kanaka Durga Temple, Vijayawada during Dasara festival. Find darshan queues, parking, medical help, food, buses, and emergency services.',
+    'Smart pilgrim navigation system for Sri Kanaka Durga Temple, Vijayawada during Dasara festival. Find parking, medical help, Annadanam food, and interactive GPS map navigation.',
   keywords: ['Kanaka Durga', 'Vijayawada', 'Dasara', 'temple', 'navigation', 'pilgrim'],
   manifest: '/manifest.json',
   appleWebApp: {

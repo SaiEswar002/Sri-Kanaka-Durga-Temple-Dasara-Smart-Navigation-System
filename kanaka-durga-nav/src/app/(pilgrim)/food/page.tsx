@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations, useLocale } from 'next-intl';
-import { Utensils, Navigation, MapPin, Heart } from 'lucide-react';
+import { Utensils, Navigation, MapPin } from 'lucide-react';
 import { useLocations } from '@/hooks/use-data';
 import { LoadingSpinner, ErrorState, EmptyState, DemoBanner } from '@/components/shared/status-components';
 import Link from 'next/link';

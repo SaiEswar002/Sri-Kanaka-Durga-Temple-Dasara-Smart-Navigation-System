@@ -65,7 +65,7 @@ export default function AdminLoginPage() {
           <div className="w-20 h-20 rounded-full overflow-hidden mx-auto mb-4 shadow-lg"
             style={{ border: '3px solid var(--color-primary-muted)', boxShadow: '0 0 0 4px var(--color-primary-subtle)' }}>
             <Image
-              src="/Durgamaatha_pic.jpeg"
+              src="/durgamaatha.jpeg"
               alt="Sri Kanaka Durga Maa"
               width={80}
               height={80}

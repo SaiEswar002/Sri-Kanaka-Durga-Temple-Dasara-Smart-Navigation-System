@@ -2,13 +2,11 @@
 // All routing providers (OSRM public, OSRM self-hosted, Mock) implement RoutingService.
 // Default: OSRM Public API (router.project-osrm.org) — real road routing, no API key needed.
 
-import type { LngLat, NavigationRoute, NavigationStep, RouteClosure } from '@/types';
+import type { LngLat, NavigationRoute, NavigationStep } from '@/types';
 
 export interface RoutingRequest {
   origin: LngLat;
   destination: LngLat;
-  /** Active route closures to avoid */
-  closures?: RouteClosure[];
   /** Profile: always pedestrian for pilgrim app */
   profile?: 'pedestrian' | 'foot';
 }
@@ -20,127 +18,7 @@ export interface RoutingService {
   readonly name: string;
 }
 
-// ============================================================
-// CLOSURE VALIDATION
-// ============================================================
-/**
- * Determine whether a route polyline passes through an active closure.
- *
- * LIMITATION: The public OSRM API does not understand this application's
- * custom database closures and cannot route around them automatically.
- * We therefore perform a post-routing validation step client-side.
- *
- * Strategy:
- *  1. For closures with a `waypoints` array — check whether any route coordinate
- *     is within CLOSURE_IMPACT_RADIUS_M of any closure waypoint.
- *  2. For closures with an `affected_area` polygon — ideally a ray-casting
- *     containment check, but PostGIS geometry is not guaranteed to be in the
- *     client bundle. We approximate with a bounding-box + point-radius check.
- *  3. For closures with no geometry — we cannot validate and skip them.
- *
- * This validation is honest: it may miss closures we cannot spatially check,
- * and may occasionally flag routes that are technically clear. It is a
- * best-effort safety net, not a guaranteed exclusion engine.
- */
-const CLOSURE_IMPACT_RADIUS_M = 60; // meters — route coords within this distance of a closure are flagged
 
-export interface ClosureValidationResult {
-  /** True if the route is clear of all detectable closures */
-  clear: boolean;
-  /** Closures whose geometry overlaps the route */
-  affectedClosures: RouteClosure[];
-}
-
-export function validateRouteAgainstClosures(
-  routeCoordinates: [number, number][],
-  closures: RouteClosure[],
-): ClosureValidationResult {
-  const affectedClosures: RouteClosure[] = [];
-
-  for (const closure of closures) {
-    if (closure.status !== 'ACTIVE' && closure.status !== 'SCHEDULED') continue;
-
-    // Strategy 1: Waypoints array  [{lat, lng}] or [[lng, lat]] in DB
-    const wp = closure.waypoints;
-    if (wp && Array.isArray(wp) && wp.length > 0) {
-      const waypointConflict = routeCoordinates.some((coord) => {
-        const routePt: LngLat = { lat: coord[1], lng: coord[0] };
-        return (wp as unknown[]).some((w) => {
-          let wPt: LngLat | null = null;
-          if (Array.isArray(w) && w.length >= 2) {
-            wPt = { lng: (w as number[])[0], lat: (w as number[])[1] };
-          } else if (w && typeof w === 'object' && 'lat' in w && 'lng' in w) {
-            wPt = w as LngLat;
-          }
-          if (!wPt) return false;
-          return haversineDistance(routePt, wPt) <= CLOSURE_IMPACT_RADIUS_M;
-        });
-      });
-      if (waypointConflict) {
-        affectedClosures.push(closure);
-        continue;
-      }
-    }
-
-    // Strategy 2: closure_line geometry — check route proximity to each line segment
-    if (closure.closure_line?.coordinates && closure.closure_line.coordinates.length >= 2) {
-      const lineCoords = closure.closure_line.coordinates;
-      const lineConflict = routeCoordinates.some((coord) => {
-        const routePt: LngLat = { lat: coord[1], lng: coord[0] };
-        for (let i = 0; i < lineCoords.length - 1; i++) {
-          const segA: LngLat = { lng: lineCoords[i][0], lat: lineCoords[i][1] };
-          const segB: LngLat = { lng: lineCoords[i + 1][0], lat: lineCoords[i + 1][1] };
-          if (pointToSegmentDistance(routePt, segA, segB) <= CLOSURE_IMPACT_RADIUS_M) {
-            return true;
-          }
-        }
-        return false;
-      });
-      if (lineConflict) {
-        affectedClosures.push(closure);
-        continue;
-      }
-    }
-
-    // Strategy 3: affected_area polygon bounding-box check (approximate)
-    if (closure.affected_area?.coordinates?.[0]) {
-      const ring = closure.affected_area.coordinates[0];
-      const lats = ring.map((c) => c[1]);
-      const lngs = ring.map((c) => c[0]);
-      const minLat = Math.min(...lats);
-      const maxLat = Math.max(...lats);
-      const minLng = Math.min(...lngs);
-      const maxLng = Math.max(...lngs);
-
-      const bboxConflict = routeCoordinates.some(([lng, lat]) =>
-        lat >= minLat && lat <= maxLat && lng >= minLng && lng <= maxLng
-      );
-      if (bboxConflict) {
-        affectedClosures.push(closure);
-      }
-    }
-  }
-
-  return {
-    clear: affectedClosures.length === 0,
-    affectedClosures,
-  };
-}
-
-/**
- * Approximate perpendicular distance from point P to line segment AB (in meters).
- */
-function pointToSegmentDistance(p: LngLat, a: LngLat, b: LngLat): number {
-  const dx = b.lng - a.lng;
-  const dy = b.lat - a.lat;
-  const lenSq = dx * dx + dy * dy;
-  if (lenSq === 0) return haversineDistance(p, a);
-
-  // Parameter t: projection of P onto line AB, clamped to [0, 1]
-  const t = Math.max(0, Math.min(1, ((p.lng - a.lng) * dx + (p.lat - a.lat) * dy) / lenSq));
-  const proj: LngLat = { lng: a.lng + t * dx, lat: a.lat + t * dy };
-  return haversineDistance(p, proj);
-}
 
 // ============================================================
 // OSRM Public API — Real road-following pedestrian routing
@@ -210,22 +88,6 @@ class OsrmPublicRoutingService implements RoutingService {
         provider: this.name,
         is_mock: false,
       };
-
-      // NOTE: OSRM cannot automatically avoid our custom database closures.
-      // We validate the returned route against active closures and annotate it.
-      if (request.closures && request.closures.length > 0) {
-        const validation = validateRouteAgainstClosures(coordinates, request.closures);
-        if (!validation.clear) {
-          // Log for operator awareness; the route is still returned.
-          // Future enhancement: request alternate route or use waypoint exclusion.
-          console.warn(
-            `[Routing] Route may pass through ${validation.affectedClosures.length} active closure(s):`,
-            validation.affectedClosures.map((c) => c.title).join(', '),
-          );
-          route.closure_conflict = true;
-          route.affected_closure_titles = validation.affectedClosures.map((c) => c.title);
-        }
-      }
 
       return route;
     } catch (err) {

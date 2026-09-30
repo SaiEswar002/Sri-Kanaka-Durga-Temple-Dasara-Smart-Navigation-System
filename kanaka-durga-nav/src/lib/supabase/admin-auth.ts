@@ -19,9 +19,8 @@ import type { AdminRole } from '@/types';
 // SUPER_ADMIN grants everything via the `all: true` wildcard.
 const ROLE_PERMISSIONS: Record<AdminRole, Record<string, boolean>> = {
   SUPER_ADMIN:       { all: true },
-  OPERATIONS_ADMIN:  { crowd: true, closures: true, emergency: true, announcements: true, locations: true },
-  CROWD_MANAGER:     { crowd: true },
-  FACILITY_MANAGER:  { locations: true, parking: true, queues: true },
+  OPERATIONS_ADMIN:  { locations: true, parking: true, sectors: true },
+  FACILITY_MANAGER:  { locations: true, parking: true },
   VIEW_ONLY:         { read_only: true },
 };
 

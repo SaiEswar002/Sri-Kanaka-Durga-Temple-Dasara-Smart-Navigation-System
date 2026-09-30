@@ -2,20 +2,16 @@
 
 import React from 'react';
 import { useTranslations, useLocale } from 'next-intl';
-import { Plus, Navigation, Phone, Clock, HeartPulse, ShieldPlus, Building2 } from 'lucide-react';
-import { useEmergencyPoints } from '@/hooks/use-data';
+import { Plus, Navigation, Phone, HeartPulse, Building2, MapPin } from 'lucide-react';
+import { useLocations } from '@/hooks/use-data';
 import { LoadingSpinner, ErrorState, EmptyState, DemoBanner } from '@/components/shared/status-components';
 import Link from 'next/link';
-import type { EmergencyPoint } from '@/types';
+import type { Location } from '@/types';
 
 export default function MedicalPage() {
   const t = useTranslations('medical');
   const locale = useLocale();
-  const { data: points, isLoading, error, refetch } = useEmergencyPoints();
-
-  const medicalPoints = points?.filter(
-    (p) => ['MEDICAL', 'FIRST_AID', 'AMBULANCE'].includes(p.emergency_type)
-  ) ?? [];
+  const { data: locations, isLoading, error, refetch } = useLocations('medical');
 
   return (
     <div className="w-full">
@@ -28,7 +24,7 @@ export default function MedicalPage() {
             <div>
               <h1 className="text-xl sm:text-2xl font-bold">{t('title')}</h1>
               <p className="text-white/80 text-xs sm:text-sm">
-                {locale === 'te' ? 'వైద్య కేంద్రాలు & అంబులెన్స్ సహాయ కేంద్రాలు' : 'First aid posts, medical centers & ambulance points'}
+                {locale === 'te' ? 'వైద్య కేంద్రాలు & ప్రథమ చికిత్స సహాయ కేంద్రాలు' : 'First aid posts, medical centers & health assistance points'}
               </p>
             </div>
           </div>
@@ -81,7 +77,7 @@ export default function MedicalPage() {
           />
         )}
 
-        {!isLoading && !error && medicalPoints.length === 0 && (
+        {!isLoading && !error && (!locations || locations.length === 0) && (
           <EmptyState
             message={locale === 'te' ? 'వైద్య సమాచారం అందుబాటులో లేదు' : 'No medical information available'}
           />
@@ -89,8 +85,8 @@ export default function MedicalPage() {
 
         {/* Responsive Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {medicalPoints.map((point) => (
-            <MedicalCard key={point.id} point={point} locale={locale} t={t} />
+          {locations?.map((loc) => (
+            <MedicalLocationCard key={loc.id} loc={loc} locale={locale} t={t} />
           ))}
         </div>
       </div>
@@ -98,44 +94,34 @@ export default function MedicalPage() {
   );
 }
 
-function getMedicalIcon(type: string) {
-  switch (type) {
-    case 'MEDICAL':    return Building2;
-    case 'FIRST_AID':  return ShieldPlus;
-    case 'AMBULANCE':  return HeartPulse;
-    default:           return Plus;
-  }
-}
-
-function MedicalCard({ point, locale, t }: { point: EmergencyPoint; locale: string; t: ReturnType<typeof useTranslations> }) {
-  const MedIconEl = getMedicalIcon(point.emergency_type);
-
+function MedicalLocationCard({ loc, locale, t }: { loc: Location; locale: string; t: ReturnType<typeof useTranslations> }) {
   return (
     <div className="card p-5 hover:shadow-md transition-shadow flex flex-col justify-between h-full">
       <div>
         <div className="flex items-start gap-3 mb-3">
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0 text-emerald-700 shadow-inner">
-            {MedIconEl && React.createElement(MedIconEl, { size: 22, 'aria-hidden': true })}
+            <Building2 size={22} aria-hidden />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <h2 className="font-bold text-base sm:text-lg text-(--color-text)">
-                {locale === 'te' ? point.name_te : point.name}
+                {locale === 'te' && loc.name_te ? loc.name_te : loc.name}
               </h2>
-              {point.is_24h && (
-                <span className="badge bg-emerald-100 text-emerald-800 border-emerald-200 text-xs flex items-center gap-1 font-bold">
-                  <Clock size={11} aria-hidden />24 Hours
-                </span>
-              )}
             </div>
-            <p className="text-xs font-semibold text-emerald-700">
-              {['POLICE', 'MEDICAL', 'FIRST_AID', 'AMBULANCE', 'FIRE', 'HELP_DESK', 'SOS_BOOTH'].includes(point.emergency_type)
-                ? t(`emergencyTypes.${point.emergency_type}` as 'emergencyTypes.MEDICAL')
-                : (point.emergency_type || 'Medical Aid')}
-            </p>
-            {point.location?.address && (
-              <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
-                {point.location.address}
+            {loc.sector && (
+              <p className="text-xs font-semibold text-emerald-700">
+                {locale === 'te' && loc.sector.name_te ? loc.sector.name_te : loc.sector.name}
+              </p>
+            )}
+            {loc.address && (
+              <p className="text-xs text-text-muted mt-1.5 leading-relaxed flex items-start gap-1">
+                <MapPin size={13} className="shrink-0 mt-0.5 text-gray-400" />
+                <span>{loc.address}</span>
+              </p>
+            )}
+            {loc.description && (
+              <p className="text-xs text-gray-600 mt-2 leading-relaxed">
+                {loc.description}
               </p>
             )}
           </div>
@@ -143,20 +129,18 @@ function MedicalCard({ point, locale, t }: { point: EmergencyPoint; locale: stri
       </div>
 
       <div className="flex gap-2.5 pt-4 border-t border-border mt-3">
-        {point.contact_phone && (
-          <a
-            href={`tel:${point.contact_phone}`}
-            className="btn btn-outline text-xs font-bold flex-1 py-2 flex items-center justify-center gap-1.5"
-            aria-label={`Call ${locale === 'te' ? point.name_te : point.name}`}
-          >
-            <Phone size={15} aria-hidden />
-            <span>{t('call')}</span>
-          </a>
-        )}
+        <a
+          href="tel:108"
+          className="btn btn-outline text-xs font-bold flex-1 py-2 flex items-center justify-center gap-1.5"
+          aria-label="Call 108"
+        >
+          <Phone size={15} aria-hidden />
+          <span>{t('call')} 108</span>
+        </a>
         <Link
-          href={`/navigate?location=${point.location_id}`}
+          href={`/navigate?location=${loc.id}`}
           className="btn btn-primary text-xs font-bold flex-1 py-2 flex items-center justify-center gap-1.5"
-          aria-label={`Navigate to ${locale === 'te' ? point.name_te : point.name}`}
+          aria-label={`Navigate to ${locale === 'te' && loc.name_te ? loc.name_te : loc.name}`}
         >
           <Navigation size={15} aria-hidden />
           <span>{t('navigate')}</span>

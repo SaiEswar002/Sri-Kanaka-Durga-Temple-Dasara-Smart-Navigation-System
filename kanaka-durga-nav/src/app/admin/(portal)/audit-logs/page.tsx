@@ -25,14 +25,10 @@ const ACTION_COLORS: Record<string, string> = {
 };
 
 const TABLE_LABELS: Record<string, string> = {
-  announcements:        'Announcements',
-  route_closures:       'Route Closures',
-  emergency_incidents:  'Emergency',
-  crowd_status:         'Crowd',
   parking_status:       'Parking',
-  darshan_queues:       'Queues',
   locations:            'Locations',
   sectors:              'Sectors',
+  sub_sectors:          'Sub-Sectors',
 };
 
 export default async function AdminAuditLogsPage() {

@@ -2,9 +2,9 @@
 
 import { useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import { useLocations, useActiveClosures, useSectors } from '@/hooks/use-data';
+import { useLocations, useSectors } from '@/hooks/use-data';
 import type { Location } from '@/types';
-import { Eye, Car, Plus, Utensils, Bus, Filter, AlertTriangle, MapPin, Layers } from 'lucide-react';
+import { Car, Plus, Utensils, Filter, MapPin, Layers } from 'lucide-react';
 
 const MapView = dynamic(
   () => import('@/components/map/map-view').then((m) => ({ default: m.MapView })),
@@ -23,7 +23,6 @@ const MapView = dynamic(
 
 export function AdminMapClient() {
   const { data: allLocations } = useLocations();
-  const { data: closures } = useActiveClosures();
   const { data: sectors } = useSectors();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedSector, setSelectedSector] = useState<string>('all');
@@ -44,11 +43,9 @@ export function AdminMapClient() {
 
   const FILTERS = [
     { id: 'all', label: 'All Facilities', icon: Filter },
-    { id: 'darshan', label: 'Queues & Darshan', icon: Eye },
     { id: 'parking', label: 'Parking Grounds', icon: Car },
-    { id: 'medical', label: 'Medical & SOS', icon: Plus },
+    { id: 'medical', label: 'Medical Posts', icon: Plus },
     { id: 'food', label: 'Annadanam', icon: Utensils },
-    { id: 'bus', label: 'RTC Shuttles', icon: Bus },
   ];
 
   return (
@@ -142,14 +139,6 @@ export function AdminMapClient() {
             }
             onLocationClick={(loc) => setSelectedLocation(loc)}
           />
-
-          {/* Closures Banner */}
-          {(closures?.length ?? 0) > 0 && (
-            <div className="absolute top-3 left-3 z-10 bg-amber-500/90 text-amber-950 backdrop-blur-xs px-3 py-1.5 rounded-xl text-xs font-bold border border-amber-400 shadow-sm flex items-center gap-2">
-              <AlertTriangle size={14} className="text-amber-950" />
-              <span>{closures!.length} Active Route Advisory In Effect</span>
-            </div>
-          )}
         </div>
 
         {/* Selected Facility Inspector */}

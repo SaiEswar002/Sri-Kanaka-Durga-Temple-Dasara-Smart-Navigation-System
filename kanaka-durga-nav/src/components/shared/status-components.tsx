@@ -1,26 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import type { CrowdLevel } from '@/types';
-import { CROWD_LEVEL_CONFIG } from '@/lib/utils';
 import { AlertTriangle, Info, Wifi } from 'lucide-react';
-
-interface CrowdBadgeProps {
-  level: CrowdLevel;
-  showLabel?: boolean;
-  locale?: string;
-  className?: string;
-}
-
-export function CrowdBadge({ level, showLabel = true, locale = 'en', className }: CrowdBadgeProps) {
-  const config = CROWD_LEVEL_CONFIG[level];
-  return (
-    <span className={cn('badge', config.bg, config.color, 'border', className)}>
-      <span className="status-dot" style={{ background: 'currentColor' }} />
-      {showLabel && (locale === 'te' ? config.label_te : config.label)}
-    </span>
-  );
-}
 
 interface LoadingSpinnerProps {
   size?: 'sm' | 'md' | 'lg';

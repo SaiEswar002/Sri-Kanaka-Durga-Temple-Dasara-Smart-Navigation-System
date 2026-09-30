@@ -5,8 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
-  LayoutDashboard, Map, Users, Car, Clock, Megaphone,
-  AlertTriangle, Camera, MapPin, GitBranch, Settings, LogOut,
+  LayoutDashboard, Map, Car, Camera, MapPin, Settings, LogOut,
   ChevronRight, Shield, Menu, X, ArrowLeft, ClipboardList, Layers,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -19,21 +18,11 @@ const NAV_GROUPS = [
     items: [
       { href: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
       { href: '/admin/map',       icon: Map,              label: 'Live Map' },
-      { href: '/admin/crowd',     icon: Users,            label: 'Crowd Levels' },
-      { href: '/admin/queues',    icon: Clock,            label: 'Darshan Queues' },
       { href: '/admin/parking',   icon: Car,              label: 'Parking' },
     ],
   },
   {
-    label: 'Content',
-    items: [
-      { href: '/admin/announcements', icon: Megaphone,     label: 'Announcements' },
-      { href: '/admin/closures',      icon: GitBranch,     label: 'Route Closures' },
-      { href: '/admin/emergency',     icon: AlertTriangle, label: 'Emergency' },
-    ],
-  },
-  {
-    label: 'Data',
+    label: 'Data Management',
     items: [
       { href: '/admin/sectors',     icon: MapPin,  label: 'Sectors' },
       { href: '/admin/sub-sectors', icon: Layers,  label: 'Sub-Sectors' },
@@ -42,7 +31,7 @@ const NAV_GROUPS = [
     ],
   },
   {
-    label: 'Admin',
+    label: 'Administration',
     items: [
       { href: '/admin/users',      icon: Shield,        label: 'Users & Roles' },
       { href: '/admin/audit-logs', icon: ClipboardList, label: 'Audit Logs' },
@@ -76,7 +65,7 @@ export function AdminSidebar() {
           <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 group-hover:scale-105 transition-transform"
             style={{ border: '1.5px solid var(--color-primary-muted)', boxShadow: '0 0 0 2px var(--color-primary-subtle)' }}>
             <Image
-              src="/Durgamaatha_pic.jpeg"
+              src="/durgamaatha.jpeg"
               alt="Sri Kanaka Durga"
               width={36}
               height={36}
@@ -123,25 +112,37 @@ export function AdminSidebar() {
             </p>
             <div className="space-y-0.5">
               {group.items.map(({ href, icon: Icon, label }) => {
-                const isActive = pathname === href || (href !== '/admin/dashboard' && pathname.startsWith(href));
+                const isActive = pathname === href || pathname.startsWith(href + '/');
                 return (
                   <Link
                     key={href}
                     href={href}
                     onClick={() => setIsMobileOpen(false)}
                     className={cn(
-                      'flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-semibold transition-all',
-                      isActive ? 'text-white shadow-sm' : 'hover:text-gray-900'
+                      'flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-semibold transition-all duration-150 no-underline',
+                      isActive
+                        ? 'text-white shadow-xs'
+                        : 'hover:bg-[var(--color-surface-secondary)]'
                     )}
-                    style={isActive
-                      ? { background: 'var(--color-primary)', color: 'white', fontFamily: 'var(--font-sans)' }
-                      : { color: 'var(--color-text-secondary)', fontFamily: 'var(--font-sans)' }
-                    }
+                    style={{
+                      background: isActive ? 'var(--color-primary)' : 'transparent',
+                      color: isActive ? '#FFFFFF' : 'var(--color-text-secondary)',
+                      fontFamily: 'var(--font-sans)',
+                    }}
                     aria-current={isActive ? 'page' : undefined}
                   >
-                    <Icon size={15} aria-hidden className="shrink-0" />
-                    <span className="flex-1">{label}</span>
-                    {isActive && <ChevronRight size={13} aria-hidden />}
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Icon
+                        size={15}
+                        className="shrink-0"
+                        style={{ color: isActive ? '#FFFFFF' : 'inherit' }}
+                        aria-hidden
+                      />
+                      <span className="truncate">{label}</span>
+                    </div>
+                    {isActive && (
+                      <ChevronRight size={12} className="opacity-75 shrink-0" aria-hidden />
+                    )}
                   </Link>
                 );
               })}
@@ -150,88 +151,100 @@ export function AdminSidebar() {
         ))}
       </nav>
 
-      {/* Gold accent divider */}
-      <div className="divider-temple mx-4" />
-
-      {/* ── Bottom Links ─────────────────────────────────────────── */}
-      <div className="p-3 space-y-1">
+      {/* ── Footer / Logout ─────────────────────────────────────── */}
+      <div
+        className="p-3 border-t space-y-1"
+        style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-secondary)' }}
+      >
         <Link
           href="/"
-          className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-semibold transition-colors"
-          style={{ color: 'var(--color-text-secondary)', fontFamily: 'var(--font-sans)' }}
+          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors no-underline"
+          style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-sans)' }}
         >
-          <ArrowLeft size={14} />
-          <span>View Pilgrim Site</span>
+          <ArrowLeft size={13} aria-hidden />
+          <span>Pilgrim View</span>
         </Link>
         <button
-          className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-semibold transition-colors w-full text-left cursor-pointer"
-          style={{ color: 'var(--color-danger)', fontFamily: 'var(--font-sans)' }}
           onClick={handleLogout}
-          aria-label="Sign out"
+          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-left transition-colors cursor-pointer"
+          style={{ color: 'var(--color-danger)', fontFamily: 'var(--font-sans)' }}
+          aria-label="Sign out of admin portal"
         >
-          <LogOut size={14} aria-hidden />
+          <LogOut size={13} aria-hidden />
           <span>Sign Out</span>
         </button>
       </div>
+
     </div>
   );
 
   return (
     <>
-      {/* Mobile top bar */}
+      {/* Mobile Top Bar */}
       <div
-        className="md:hidden fixed top-0 left-0 right-0 h-14 px-4 flex items-center justify-between z-30 shadow-sm"
-        style={{ background: 'var(--color-surface)', borderBottom: '1px solid var(--color-border)' }}
+        className="md:hidden flex items-center justify-between px-4 py-2.5 sticky top-0 z-40 border-b"
+        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
       >
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setIsMobileOpen(true)}
-            className="p-2 rounded-lg transition-colors"
-            style={{ color: 'var(--color-text)' }}
-            aria-label="Open navigation menu"
+            className="p-1.5 rounded-lg border transition-colors"
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
+            aria-label="Open menu"
+            aria-expanded={isMobileOpen}
           >
-            <Menu size={20} />
+            <Menu size={18} />
           </button>
-          {/* Mobile: logo + name */}
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-primary-muted)' }}>
-              <Image src="/Durgamaatha_pic.jpeg" alt="Sri Kanaka Durga" width={28} height={28} className="w-full h-full object-cover" />
-            </div>
-            <span className="font-bold text-sm" style={{ color: 'var(--color-text)', fontFamily: 'var(--font-sans)' }}>
-              Admin
-            </span>
+          <div className="w-6 h-6 rounded-md overflow-hidden shrink-0">
+            <Image
+              src="/durgamaatha.jpeg"
+              alt="Sri Kanaka Durga"
+              width={24}
+              height={24}
+              className="w-full h-full object-cover"
+            />
           </div>
+          <span
+            className="text-xs font-bold"
+            style={{ color: 'var(--color-text)', fontFamily: 'var(--font-sans)' }}
+          >
+            Kanaka Durga Admin
+          </span>
         </div>
         <Link
           href="/"
-          className="text-xs font-bold transition-opacity hover:opacity-70"
-          style={{ color: 'var(--color-primary)' }}
+          className="text-xs font-medium px-2 py-1 rounded transition-colors no-underline"
+          style={{ color: 'var(--color-text-muted)' }}
         >
           Pilgrim App →
         </Link>
       </div>
 
-      {/* Mobile drawer backdrop */}
+      {/* Mobile Overlay */}
       {isMobileOpen && (
         <div
-          className="md:hidden fixed inset-0 bg-black/40 z-40 backdrop-blur-sm"
+          className="md:hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-xs"
           onClick={() => setIsMobileOpen(false)}
           aria-hidden="true"
         />
       )}
 
-      {/* Mobile drawer */}
-      <div
+      {/* Mobile Slide-out Drawer */}
+      <aside
         className={cn(
-          'md:hidden fixed inset-y-0 left-0 w-72 z-50 transform transition-transform duration-200 ease-in-out',
+          'md:hidden fixed inset-y-0 left-0 z-50 w-64 shadow-2xl transition-transform duration-200 ease-in-out',
           isMobileOpen ? 'translate-x-0' : '-translate-x-full'
         )}
+        aria-label="Mobile admin navigation"
       >
         {navContent}
-      </div>
+      </aside>
 
-      {/* Desktop sidebar */}
-      <aside className="hidden md:block w-60 shrink-0 h-screen sticky top-0 z-30" aria-label="Admin sidebar">
+      {/* Desktop Sidebar (Fixed width, full height) */}
+      <aside
+        className="hidden md:flex flex-col w-56 lg:w-60 h-screen sticky top-0 shrink-0 z-30 select-none"
+        aria-label="Admin navigation"
+      >
         {navContent}
       </aside>
     </>

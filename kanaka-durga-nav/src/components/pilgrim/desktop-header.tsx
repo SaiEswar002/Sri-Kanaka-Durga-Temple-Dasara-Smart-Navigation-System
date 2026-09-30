@@ -6,35 +6,28 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
 import {
-  Home, Eye, Car, Cross, Utensils, Bus,
-  AlertTriangle, Navigation, Shield
+  Home, Navigation, Car, Cross, Utensils, Shield
 } from 'lucide-react';
 import { LanguageToggle } from '@/components/shared/language-toggle';
 import { cn } from '@/lib/utils';
 
 const DESKTOP_NAV_LINKS = [
-  { href: '/',          icon: Home,          labelKey: 'home',      labelTe: 'హోమ్',       isEmergency: false },
-  { href: '/darshan',   icon: Eye,           labelKey: 'darshan',   labelTe: 'దర్శనం',     isEmergency: false },
-  { href: '/parking',   icon: Car,           labelKey: 'parking',   labelTe: 'పార్కింగ్',   isEmergency: false },
-  { href: '/medical',   icon: Cross,         labelKey: 'medical',   labelTe: 'వైద్యం',      isEmergency: false },
-  { href: '/food',      icon: Utensils,      labelKey: 'food',      labelTe: 'అన్నదానం',   isEmergency: false },
-  { href: '/bus',       icon: Bus,           labelKey: 'bus',       labelTe: 'బస్సు',       isEmergency: false },
-  { href: '/navigate',  icon: Navigation,    labelKey: 'navigate',  labelTe: 'మ్యాప్',      isEmergency: false },
-  { href: '/emergency', icon: AlertTriangle, labelKey: 'emergency', labelTe: 'ఎమర్జెన్సీ',  isEmergency: true  },
+  { href: '/',         icon: Home,       labelKey: 'home',     labelTe: 'హోమ్' },
+  { href: '/navigate', icon: Navigation, labelKey: 'navigate', labelTe: 'మ్యాప్' },
+  { href: '/parking',  icon: Car,        labelKey: 'parking',  labelTe: 'పార్కింగ్' },
+  { href: '/medical',  icon: Cross,      labelKey: 'medical',  labelTe: 'వైద్యం' },
+  { href: '/food',     icon: Utensils,   labelKey: 'food',     labelTe: 'అన్నదానం' },
 ] as const;
-
 
 export function PilgrimDesktopHeader() {
   const pathname = usePathname();
   const t = useTranslations('nav');
   const locale = useLocale();
 
-  // useSyncExternalStore is the React 19 idiomatic pattern for hydration guards.
-  // It avoids calling setState inside a useEffect (react-hooks/set-state-in-effect).
   const mounted = useSyncExternalStore(
-    () => () => {},           // subscribe — no-op (no external store to subscribe to)
-    () => true,               // getSnapshot (client) — always mounted on client
-    () => false,              // getServerSnapshot — never mounted on server
+    () => () => {},
+    () => true,
+    () => false,
   );
 
   return (
@@ -56,7 +49,7 @@ export function PilgrimDesktopHeader() {
               style={{ border: '2px solid rgba(242,201,76,0.5)', boxShadow: '0 0 0 2px rgba(212,160,23,0.2)' }}
             >
               <Image
-                src="/Durgamaatha_pic.jpeg"
+                src="/durgamaatha.jpeg"
                 alt="Sri Kanaka Durga Maa"
                 width={40}
                 height={40}
@@ -89,22 +82,18 @@ export function PilgrimDesktopHeader() {
 
           {/* ── Center Nav Links ──────────────────────────────── */}
           {mounted && (
-            <nav className="flex items-center gap-0.5 flex-1 justify-center" aria-label="Desktop navigation">
-              {DESKTOP_NAV_LINKS.map(({ href, icon: Icon, labelKey, labelTe, isEmergency }) => {
+            <nav className="flex items-center gap-1 flex-1 justify-center" aria-label="Desktop navigation">
+              {DESKTOP_NAV_LINKS.map(({ href, icon: Icon, labelKey, labelTe }) => {
                 const isActive = pathname === href;
                 return (
                   <Link
                     key={href}
                     href={href}
                     className={cn(
-                      'flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-semibold transition-all duration-150 whitespace-nowrap min-h-[36px]',
-                      isEmergency
-                        ? isActive
-                          ? 'bg-red-600 text-white shadow-md'
-                          : 'text-red-300 hover:bg-red-700/40 hover:text-white border border-red-500/30'
-                        : isActive
-                          ? 'bg-white/18 text-white shadow-sm'
-                          : 'text-white/80 hover:bg-white/10 hover:text-white'
+                      'flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-150 whitespace-nowrap min-h-[36px]',
+                      isActive
+                        ? 'bg-white/18 text-white shadow-sm'
+                        : 'text-white/80 hover:bg-white/10 hover:text-white'
                     )}
                     aria-current={isActive ? 'page' : undefined}
                   >

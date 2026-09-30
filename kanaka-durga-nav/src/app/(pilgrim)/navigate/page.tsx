@@ -4,13 +4,13 @@ import { useState, useCallback, useMemo, Suspense, useEffect, useRef } from 'rea
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
 import {
-  Navigation, MapPin, MapPinOff, ChevronRight, X, AlertCircle,
+  Navigation, MapPin, MapPinOff, ChevronRight, X,
   ArrowLeft, CheckCircle2, Signal, SignalHigh, SignalLow, Crosshair,
   ArrowUp, ArrowUpLeft, ArrowUpRight, CornerUpLeft, CornerUpRight,
   RotateCcw, Volume2, AlertTriangle, WifiOff, RefreshCw, Route,
   Search
 } from 'lucide-react';
-import { useLocation as useLocationData, useActiveClosures, useLocations } from '@/hooks/use-data';
+import { useLocation as useLocationData, useLocations } from '@/hooks/use-data';
 import { useLiveNavigation } from '@/hooks/use-live-navigation';
 import { createRoutingService } from '@/services/routing/routing-service';
 import { formatDistance, formatDuration } from '@/lib/utils';
@@ -356,7 +356,6 @@ interface PreNavSidebarProps {
   routeLoading: boolean;
   routeError: string | null;
   destLngLat: LngLat | null;
-  hasActiveClosures: boolean;
   onStart: () => void;
   onRequestLocation: () => void;
   onSelectDest: (id: string) => void;
@@ -366,7 +365,7 @@ interface PreNavSidebarProps {
 
 function PreNavSidebar({
   destination, allLocations, locale, acquiringGps, preAcquiredLocation,
-  gpsSkipped, routeLoading, routeError, destLngLat, hasActiveClosures,
+  gpsSkipped, routeLoading, routeError, destLngLat,
   onStart, onRequestLocation, onSelectDest, t, tLoc
 }: PreNavSidebarProps) {
   const [search, setSearch] = useState('');
@@ -401,13 +400,6 @@ function PreNavSidebar({
 
   return (
     <div className="order-2 md:order-1 md:w-105 lg:w-115 shrink-0 bg-white border-t md:border-t-0 md:border-r border-border shadow-xl md:shadow-none z-20 flex flex-col max-h-[45dvh] md:max-h-full overflow-y-auto">
-      {hasActiveClosures && (
-        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 text-xs text-amber-800 flex items-center gap-2 font-medium">
-          <AlertCircle size={15} className="text-amber-600 shrink-0" />
-          <span>{t('closureWarning')}</span>
-        </div>
-      )}
-
       <div className="p-4 sm:p-5 flex-1 flex flex-col gap-4">
         {destination ? (
           <>
@@ -632,7 +624,6 @@ function NavigatePageContent() {
   const locationId = searchParams.get('location');
 
   const { data: destination, isLoading: destLoading } = useLocationData(locationId ?? '');
-  const { data: closures } = useActiveClosures();
   const { data: allLocations } = useLocations();
 
   const [route, setRoute] = useState<NavigationRoute | null>(null);
@@ -680,15 +671,8 @@ function NavigatePageContent() {
       const result = await createRoutingService().route({
         origin: currentPos,
         destination: currentDest,
-        closures: closures ?? [],
       });
-      if (result.closure_conflict && result.affected_closure_titles?.length) {
-        setRouteError(
-          `⚠️ Recalculated route may also pass near closure: "${result.affected_closure_titles[0]}". Proceed with caution.`
-        );
-      } else {
-        setRouteError(null);
-      }
+      setRouteError(null);
       setRoute(result);
       setManualStepIdx(0);
     } catch {
@@ -700,7 +684,7 @@ function NavigatePageContent() {
     } finally {
       setIsRerouting(false);
     }
-  }, [closures]);
+  }, []);
 
   const handleOffRoute = useCallback(() => {
     if (!isNavigating) return;
@@ -772,15 +756,7 @@ function NavigatePageContent() {
     setManualStepIdx(0);
     setAutoFollow(true);
     try {
-      const result = await createRoutingService().route({ origin, destination: destLngLat, closures: closures ?? [] });
-
-      // Surface closure conflicts clearly — never silently guide through a closed area
-      if (result.closure_conflict && result.affected_closure_titles?.length) {
-        setRouteError(
-          `⚠️ Route passes near active closure: "${result.affected_closure_titles[0]}". ` +
-          `Proceed with caution or choose a different path.`
-        );
-      }
+      const result = await createRoutingService().route({ origin, destination: destLngLat });
 
       // Note if we fell back to a straight-line mock route (OSRM unavailable)
       if (result.is_mock) {
@@ -803,7 +779,7 @@ function NavigatePageContent() {
     } finally {
       setRouteLoading(false);
     }
-  }, [bestUserLocation, destLngLat, closures, t]);
+  }, [bestUserLocation, destLngLat, t]);
 
   const stopNavigation = useCallback(() => {
     setIsNavigating(false);
@@ -820,7 +796,6 @@ function NavigatePageContent() {
 
   const currentStep = route?.steps[live.currentStepIdx];
   const nextStep = route?.steps[live.currentStepIdx + 1];
-  const hasActiveClosures = (closures?.length ?? 0) > 0;
 
   // Map centre: follow user GPS during active navigation, else show destination
   const mapCenter: LngLat | undefined =
@@ -884,7 +859,6 @@ function NavigatePageContent() {
           onLocationClick={() => {}}
           center={mapCenter}
           route={route}
-          closures={closures ?? []}
           onUserInteraction={() => setAutoFollow(false)}
           recenterTrigger={recenterTrigger}
           autoFollow={autoFollow}
@@ -963,7 +937,6 @@ function NavigatePageContent() {
           routeLoading={routeLoading}
           routeError={routeError}
           destLngLat={destLngLat}
-          hasActiveClosures={hasActiveClosures}
           onStart={startNavigation}
           onRequestLocation={requestLocation}
           onSelectDest={(id) => router.push(id ? `/navigate?location=${id}` : '/navigate')}
@@ -982,7 +955,6 @@ function NavigatePageContent() {
           onLocationClick={(loc) => router.push(`/navigate?location=${loc.id}`)}
           center={mapCenter}
           route={null}
-          closures={closures ?? []}
         />
 
         {/* GPS acquiring overlay */}

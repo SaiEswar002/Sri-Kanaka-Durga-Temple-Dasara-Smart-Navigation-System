@@ -510,14 +510,6 @@ body {
   border-radius: 0 0 var(--radius-full) var(--radius-full);
 }
 
-/* Emergency item always crimson */
-.bottom-nav-item.emergency {
-  color: var(--color-danger);
-}
-.bottom-nav-item.emergency.active,
-.bottom-nav-item.emergency:hover {
-  color: #991B1B;
-}
 
 .bottom-nav-item span {
   font-size: 0.6rem;
@@ -662,24 +654,6 @@ body {
   line-height: 1.3;
 }
 
-/* Emergency tile styling */
-.category-tile.emergency {
-  border-color: #FECACA;
-  background: linear-gradient(135deg, #FFF5F5 0%, #FEF2F2 100%);
-}
-
-/* ============================================================
-   ANNOUNCEMENT BANNER
-   ============================================================ */
-.announcement-urgent {
-  background: linear-gradient(90deg, var(--color-danger) 0%, #9B1C1C 100%);
-  color: white;
-  animation: pulse-urgent 2.5s ease-in-out infinite;
-}
-@keyframes pulse-urgent {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.94; }
-}
 
 /* ============================================================
    LOADING SKELETON

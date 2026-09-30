@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type * as LeafletType from 'leaflet';
-import type { LngLat, NavigationRoute, Location, RouteClosure } from '@/types';
+import type { LngLat, NavigationRoute, Location } from '@/types';
 import { getMapTileProvider } from '@/services/map/tile-provider';
 import { cn } from '@/lib/utils';
 import 'leaflet/dist/leaflet.css';
@@ -14,8 +14,6 @@ interface MapProps {
   destination?: LngLat | null;
   destinations?: Location[];
   route?: NavigationRoute | null;
-  /** Active route closures to render as warning overlays */
-  closures?: RouteClosure[];
   className?: string;
   onLocationClick?: (location: Location) => void;
   interactive?: boolean;
@@ -69,7 +67,6 @@ export function MapView({
   destination,
   destinations = [],
   route,
-  closures = [],
   className,
   onLocationClick,
   interactive = true,
@@ -95,7 +92,6 @@ export function MapView({
   const destMarkerRef = useRef<LeafletType.Marker | null>(null);
   const markersGroupRef = useRef<LeafletType.LayerGroup | null>(null);
   const routeGroupRef = useRef<LeafletType.LayerGroup | null>(null);
-  const closuresGroupRef = useRef<LeafletType.LayerGroup | null>(null);
 
   // Safe helper to check if map is valid and ready
   const isMapAlive = useCallback((): boolean => {
@@ -177,7 +173,6 @@ export function MapView({
         // Marker & Route & Closure layer groups
         markersGroupRef.current = L.layerGroup().addTo(map);
         routeGroupRef.current = L.layerGroup().addTo(map);
-        closuresGroupRef.current = L.layerGroup().addTo(map);
 
         // Mark ready when map is initialized
         let loadingCleared = false;
@@ -517,85 +512,7 @@ export function MapView({
     renderRoute();
   }, [route, mapReady, isMapAlive]);
 
-  // 7. Render Active Closure Lines/Areas
-  useEffect(() => {
-    if (!mapReady || !isMapAlive()) return;
-    const group = closuresGroupRef.current;
-    const map = mapRef.current;
-    if (!group || !map) return;
 
-    async function renderClosures() {
-      const L = await getLeaflet();
-      if (!isMapAlive() || !group) return;
-
-      group.clearLayers();
-
-      const activeClosures = closures.filter(
-        (c) => c.status === 'ACTIVE' || c.status === 'SCHEDULED'
-      );
-
-      for (const closure of activeClosures) {
-        // Render closure_line (primary geometry)
-        if (closure.closure_line?.coordinates && closure.closure_line.coordinates.length >= 2) {
-          const latLngs = closure.closure_line.coordinates.map(
-            ([lng, lat]) => [lat, lng] as [number, number]
-          );
-
-          // Red glow underlayer
-          const glow = L.polyline(latLngs, {
-            color: '#ef4444',
-            weight: 10,
-            opacity: 0.25,
-            dashArray: undefined,
-          });
-
-          // Dashed red warning line
-          const closureLine = L.polyline(latLngs, {
-            color: '#dc2626',
-            weight: 4,
-            opacity: 0.85,
-            dashArray: '8 6',
-            lineCap: 'round',
-          });
-
-          const popupContent = `
-            <div style="font-family:sans-serif;max-width:200px">
-              <div style="color:#dc2626;font-weight:700;font-size:13px;margin-bottom:4px">🚫 ${closure.title}</div>
-              ${closure.reason ? `<div style="font-size:11px;color:#555;margin-bottom:4px">${closure.reason}</div>` : ''}
-              <div style="font-size:10px;color:#888">${closure.closure_type} closure</div>
-            </div>
-          `;
-          closureLine.bindPopup(popupContent);
-          group.addLayer(glow);
-          group.addLayer(closureLine);
-        }
-
-        // Render affected_area polygon bounding box
-        if (closure.affected_area?.coordinates?.[0]) {
-          const ring = closure.affected_area.coordinates[0];
-          const latLngs = ring.map(([lng, lat]) => [lat, lng] as [number, number]);
-          const poly = L.polygon(latLngs, {
-            color: '#dc2626',
-            weight: 2,
-            opacity: 0.6,
-            fillColor: '#ef4444',
-            fillOpacity: 0.12,
-          });
-          const popupContent = `
-            <div style="font-family:sans-serif;max-width:200px">
-              <div style="color:#dc2626;font-weight:700;font-size:13px;margin-bottom:4px">🚫 ${closure.title}</div>
-              ${closure.reason ? `<div style="font-size:11px;color:#555;margin-bottom:4px">${closure.reason}</div>` : ''}
-              <div style="font-size:10px;color:#888">${closure.closure_type} closure area</div>
-            </div>
-          `;
-          poly.bindPopup(popupContent);
-          group.addLayer(poly);
-        }
-      }
-    }
-
-    renderClosures();
-  }, [closures, mapReady, isMapAlive]);
 
   if (error) {
     return (
