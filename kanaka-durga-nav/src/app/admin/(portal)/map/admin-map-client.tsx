@@ -203,22 +203,10 @@ export function AdminMapClient() {
                     <span className="font-medium text-right truncate max-w-40">{selectedLocation.address}</span>
                   </div>
                 )}
-                {selectedLocation.contact_phone && (
+                {selectedLocation.description && (
                   <div className="flex justify-between py-1 border-b border-gray-50">
-                    <span className="text-gray-400">Helpline:</span>
-                    <span className="font-bold text-[#9b1b30]">{selectedLocation.contact_phone}</span>
-                  </div>
-                )}
-                {selectedLocation.operating_hours && (
-                  <div className="flex justify-between py-1 border-b border-gray-50">
-                    <span className="text-gray-400">Hours:</span>
-                    <span className="font-medium">{selectedLocation.operating_hours}</span>
-                  </div>
-                )}
-                {selectedLocation.capacity && (
-                  <div className="flex justify-between py-1 border-b border-gray-50">
-                    <span className="text-gray-400">Capacity:</span>
-                    <span className="font-bold">{selectedLocation.capacity.toLocaleString()}</span>
+                    <span className="text-gray-400">Info:</span>
+                    <span className="font-medium text-right max-w-40 line-clamp-2">{selectedLocation.description}</span>
                   </div>
                 )}
                 <div className="flex justify-between py-1">

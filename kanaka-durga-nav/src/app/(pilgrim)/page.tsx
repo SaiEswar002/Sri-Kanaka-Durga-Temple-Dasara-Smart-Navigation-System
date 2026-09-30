@@ -131,143 +131,103 @@ export default function HomePage() {
             <LanguageToggle currentLocale={locale} />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-            {/* ── Left: Temple Branding ──────────────────────── */}
-            <div className="md:col-span-8">
-
-              {/* Temple name — Forum for subtitle */}
-              <div className="flex items-center gap-2 mb-3">
-                {/* Diya icon */}
-                <div
-                  className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
-                  style={{ background: 'rgba(242,201,76,0.2)', border: '1px solid rgba(242,201,76,0.35)' }}
-                  aria-hidden="true"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 2C10.5 2 9.5 3 9.5 4.5C9.5 6 10.5 7 12 7C13.5 7 14.5 6 14.5 4.5C14.5 3 13.5 2 12 2Z" fill="#F2C94C"/>
-                    <path d="M12 8C9 8 7 10 7 13C7 16 9 18 12 22C15 18 17 16 17 13C17 10 15 8 12 8Z" fill="#FBBF24"/>
-                    <circle cx="12" cy="13" r="2.5" fill="#FFF8E7" opacity="0.9"/>
-                  </svg>
-                </div>
-                <span
-                  className="text-xs sm:text-sm font-medium tracking-wider uppercase"
-                  style={{
-                    fontFamily: isTE ? 'var(--font-telugu)' : "'Forum', Georgia, serif",
-                    color: 'rgba(242,201,76,0.9)',
-                  }}
-                >
-                  {isTE ? 'శ్రీ కనక దుర్గమ్మ దేవస్థానం • ఇంద్రకీలాద్రి' : 'Sri Kanaka Durga Temple • Indrakeeladri, Vijayawada'}
-                </span>
+          <div className="max-w-3xl">
+            {/* Temple name — Forum for subtitle */}
+            <div className="flex items-center gap-2 mb-3">
+              {/* Diya icon */}
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                style={{ background: 'rgba(242,201,76,0.2)', border: '1px solid rgba(242,201,76,0.35)' }}
+                aria-hidden="true"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 2C10.5 2 9.5 3 9.5 4.5C9.5 6 10.5 7 12 7C13.5 7 14.5 6 14.5 4.5C14.5 3 13.5 2 12 2Z" fill="#F2C94C"/>
+                  <path d="M12 8C9 8 7 10 7 13C7 16 9 18 12 22C15 18 17 16 17 13C17 10 15 8 12 8Z" fill="#FBBF24"/>
+                  <circle cx="12" cy="13" r="2.5" fill="#FFF8E7" opacity="0.9"/>
+                </svg>
               </div>
-
-              {/* Main hero title — Cinzel for EN, Noto Sans Telugu for TE */}
-              <h1
-                className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-tight"
+              <span
+                className="text-xs sm:text-sm font-medium tracking-wider uppercase"
                 style={{
-                  fontFamily: isTE
-                    ? 'var(--font-telugu)'
-                    : "'Cinzel', Georgia, serif",
-                  fontWeight: isTE ? 700 : 700,
-                  letterSpacing: isTE ? '0' : '0.02em',
-                  lineHeight: isTE ? '1.3' : '1.1',
+                  fontFamily: isTE ? 'var(--font-telugu)' : "'Forum', Georgia, serif",
+                  color: 'rgba(242,201,76,0.9)',
                 }}
               >
-                {isTE ? 'దసరా మహోత్సవాల స్మార్ట్ నావిగేషన్' : 'Dasara Smart Navigation'}
-              </h1>
-
-              {/* Sub-heading — Cormorant Garamond for EN */}
-              <p
-                className="mt-2 text-sm sm:text-base max-w-2xl leading-relaxed"
-                style={{
-                  fontFamily: isTE
-                    ? 'var(--font-telugu)'
-                    : "'Cormorant Garamond', Georgia, serif",
-                  fontStyle: isTE ? 'normal' : 'normal',
-                  fontWeight: 500,
-                  color: 'rgba(255,255,255,0.85)',
-                  fontSize: isTE ? '0.875rem' : '1.1rem',
-                }}
-              >
-                {isTE
-                  ? 'క్యూ లైన్లు, ఉచిత పార్కింగ్, అన్నదానం, వైద్య కేంద్రాలు మరియు ఘాట్ రోడ్ రూట్ సమాచారం క్షణాల్లో తెలుసుకోండి.'
-                  : 'Real-time pilgrim guidance for Darshan queues, free parking, Annadanam meals, medical camps, and Ghat road navigation.'}
-              </p>
-
-              {/* Gold ornamental rule */}
-              <div className="mt-4 mb-5 w-24 h-0.5 opacity-50" style={{ background: 'linear-gradient(90deg, var(--color-gold), transparent)' }} aria-hidden="true" />
-
-              {/* Location + Map CTA row */}
-              <div className="flex flex-wrap items-center gap-3">
-                {permissionState === 'granted' && location ? (
-                  <div className="flex items-center gap-2 rounded-full px-4 py-1.5 backdrop-blur-sm"
-                    style={{ background: 'rgba(22,128,60,0.25)', border: '1px solid rgba(74,222,128,0.3)' }}>
-                    <MapPin size={13} className="text-emerald-300 animate-bounce" aria-hidden />
-                    <span className="text-white text-xs font-semibold">{t('locationGranted')}</span>
-                    <span className="text-emerald-300 text-xs font-mono">±{Math.round(location.accuracy)}m</span>
-                  </div>
-                ) : permissionState === 'denied' ? (
-                  <div className="flex items-center gap-2 rounded-full px-4 py-1.5 backdrop-blur-sm"
-                    style={{ background: 'rgba(198,40,40,0.25)', border: '1px solid rgba(248,113,113,0.3)' }}>
-                    <MapPinOff size={13} className="text-red-300" aria-hidden />
-                    <span className="text-white text-xs font-medium">{t('locationDenied')}</span>
-                  </div>
-                ) : (
-                  <button
-                    onClick={requestLocation}
-                    className="flex items-center gap-2 rounded-full px-4 py-1.5 transition-all text-xs font-semibold"
-                    style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)' }}
-                    aria-label={t('enableLocation')}
-                  >
-                    <Navigation size={13} style={{ color: 'var(--color-gold-light)' }} aria-hidden />
-                    <span>{t('locationPrompt')}</span>
-                  </button>
-                )}
-
-                <Link
-                  href="/navigate"
-                  className="hidden sm:inline-flex items-center gap-2 font-bold px-4 py-1.5 rounded-full text-xs shadow-md transition-all hover:scale-105"
-                  style={{ background: 'var(--color-gold)', color: 'var(--color-charcoal)' }}
-                >
-                  <Compass size={13} aria-hidden />
-                  <span>{isTE ? 'లైవ్ మ్యాప్ చూడండి' : 'Open Live Map'}</span>
-                </Link>
-              </div>
+                {isTE ? 'శ్రీ కనక దుర్గమ్మ దేవస్థానం • ఇంద్రకీలాద్రి' : 'Sri Kanaka Durga Temple • Indrakeeladri, Vijayawada'}
+              </span>
             </div>
 
-            {/* ── Right: Today's Info Card (desktop only) ────── */}
-            <div className="hidden md:block md:col-span-4">
-              <div
-                className="rounded-2xl p-5 space-y-3"
-                style={{ background: 'rgba(0,0,0,0.22)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.12)' }}
-              >
-                <div className="flex items-center justify-between pb-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                  <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--color-gold-light)' }}>
-                    {isTE ? 'నేటి దర్శన సమాచారం' : "Today's Darshan Info"}
-                  </span>
-                  <span className="flex h-2 w-2 relative" aria-label="Live">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                  </span>
+            {/* Main hero title — Cinzel for EN, Noto Sans Telugu for TE */}
+            <h1
+              className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-tight"
+              style={{
+                fontFamily: isTE
+                  ? 'var(--font-telugu)'
+                  : "'Cinzel', Georgia, serif",
+                fontWeight: isTE ? 700 : 700,
+                letterSpacing: isTE ? '0' : '0.02em',
+                lineHeight: isTE ? '1.3' : '1.1',
+              }}
+            >
+              {isTE ? 'దసరా మహోత్సవాల స్మార్ట్ నావిగేషన్' : 'Dasara Smart Navigation'}
+            </h1>
+
+            {/* Sub-heading — Cormorant Garamond for EN */}
+            <p
+              className="mt-2 text-sm sm:text-base max-w-2xl leading-relaxed"
+              style={{
+                fontFamily: isTE
+                  ? 'var(--font-telugu)'
+                  : "'Cormorant Garamond', Georgia, serif",
+                fontStyle: isTE ? 'normal' : 'normal',
+                fontWeight: 500,
+                color: 'rgba(255,255,255,0.85)',
+                fontSize: isTE ? '0.875rem' : '1.1rem',
+              }}
+            >
+              {isTE
+                ? 'క్యూ లైన్లు, ఉచిత పార్కింగ్, అన్నదానం, వైద్య కేంద్రాలు మరియు ఘాట్ రోడ్ రూట్ సమాచారం క్షణాల్లో తెలుసుకోండి.'
+                : 'Real-time pilgrim guidance for Darshan queues, free parking, Annadanam meals, medical camps, and Ghat road navigation.'}
+            </p>
+
+            {/* Gold ornamental rule */}
+            <div className="mt-4 mb-5 w-24 h-0.5 opacity-50" style={{ background: 'linear-gradient(90deg, var(--color-gold), transparent)' }} aria-hidden="true" />
+
+            {/* Location + Map CTA row */}
+            <div className="flex flex-wrap items-center gap-3">
+              {permissionState === 'granted' && location ? (
+                <div className="flex items-center gap-2 rounded-full px-4 py-1.5 backdrop-blur-sm"
+                  style={{ background: 'rgba(22,128,60,0.25)', border: '1px solid rgba(74,222,128,0.3)' }}>
+                  <MapPin size={13} className="text-emerald-300 animate-bounce" aria-hidden />
+                  <span className="text-white text-xs font-semibold">{t('locationGranted')}</span>
+                  <span className="text-emerald-300 text-xs font-mono">±{Math.round(location.accuracy)}m</span>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="rounded-xl p-2.5" style={{ background: 'rgba(255,255,255,0.08)' }}>
-                    <span className="text-white/55 block text-[10px] font-medium mb-0.5">{isTE ? 'సాధారణ దర్శనం' : 'Sarva Darshan'}</span>
-                    <span className="text-white font-bold text-sm">~45–60 min</span>
-                  </div>
-                  <div className="rounded-xl p-2.5" style={{ background: 'rgba(255,255,255,0.08)' }}>
-                    <span className="text-white/55 block text-[10px] font-medium mb-0.5">{isTE ? 'ప్రత్యేక దర్శనం' : 'Special Queue'}</span>
-                    <span className="text-white font-bold text-sm">~20–30 min</span>
-                  </div>
+              ) : permissionState === 'denied' ? (
+                <div className="flex items-center gap-2 rounded-full px-4 py-1.5 backdrop-blur-sm"
+                  style={{ background: 'rgba(198,40,40,0.25)', border: '1px solid rgba(248,113,113,0.3)' }}>
+                  <MapPinOff size={13} className="text-red-300" aria-hidden />
+                  <span className="text-white text-xs font-medium">{t('locationDenied')}</span>
                 </div>
-                <Link
-                  href="/darshan"
-                  className="flex items-center justify-between text-xs font-semibold pt-1 transition-colors hover:opacity-80"
-                  style={{ color: 'var(--color-gold-light)' }}
+              ) : (
+                <button
+                  onClick={requestLocation}
+                  className="flex items-center gap-2 rounded-full px-4 py-1.5 transition-all text-xs font-semibold"
+                  style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)' }}
+                  aria-label={t('enableLocation')}
                 >
-                  <span>{isTE ? 'అన్ని క్యూ లైన్లు చూడండి' : 'View all queue lines'}</span>
-                  <ArrowRight size={13} />
-                </Link>
-              </div>
+                  <Navigation size={13} style={{ color: 'var(--color-gold-light)' }} aria-hidden />
+                  <span>{t('locationPrompt')}</span>
+                </button>
+              )}
+
+              <Link
+                href="/navigate"
+                className="hidden sm:inline-flex items-center gap-2 font-bold px-4 py-1.5 rounded-full text-xs shadow-md transition-all hover:scale-105"
+                style={{ background: 'var(--color-gold)', color: 'var(--color-charcoal)' }}
+              >
+                <Compass size={13} aria-hidden />
+                <span>{isTE ? 'లైవ్ మ్యాప్ చూడండి' : 'Open Live Map'}</span>
+              </Link>
             </div>
           </div>
         </div>
@@ -361,10 +321,10 @@ export default function HomePage() {
 
                 {/* Emergency pulse ring */}
                 {isEmergency && (
-                  <div className="absolute top-2 right-2 w-2 h-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-60" />
+                  <span className="absolute top-3 right-3 flex h-2 w-2 pointer-events-none" aria-label="Live">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-                  </div>
+                  </span>
                 )}
               </Link>
             ))}

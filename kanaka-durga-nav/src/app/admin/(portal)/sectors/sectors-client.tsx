@@ -5,29 +5,21 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import {
   Plus, Trash2, Edit3, MapPin, RefreshCw, X,
-  CheckCircle2, AlertCircle, ChevronDown
+  CheckCircle2, AlertCircle, Globe
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const supabase = createClient();
 
-/* ─── Types ──────────────────────────────────────────────── */
-type Status     = 'ACTIVE' | 'INACTIVE' | 'RESTRICTED' | 'CLOSED';
-type CrowdLevel = 'LOW' | 'NORMAL' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-
+/* ─── Types (Phase 2 simplified) ─────────────────────────── */
 interface Sector {
   id: string;
   name: string;
   name_te: string;
   description: string | null;
   description_te: string | null;
-  slug: string;
-  status: Status;
-  crowd_level: CrowdLevel;
-  display_order: number;
-  centroid?: { type: string; coordinates: [number, number] } | null;
-  is_demo_data: boolean;
   created_at: string;
+  updated_at: string;
 }
 
 interface SectorForm {
@@ -35,12 +27,6 @@ interface SectorForm {
   name_te: string;
   description: string;
   description_te: string;
-  slug: string;
-  status: Status;
-  crowd_level: CrowdLevel;
-  display_order: number;
-  lat: number | '';
-  lng: number | '';
 }
 
 const DEFAULT_FORM: SectorForm = {
@@ -48,32 +34,6 @@ const DEFAULT_FORM: SectorForm = {
   name_te: '',
   description: '',
   description_te: '',
-  slug: '',
-  status: 'ACTIVE',
-  crowd_level: 'NORMAL',
-  display_order: 0,
-  lat: '',
-  lng: '',
-};
-
-/* ─── Helpers ────────────────────────────────────────────── */
-function toSlug(text: string) {
-  return text.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-}
-
-const STATUS_COLORS: Record<Status, string> = {
-  ACTIVE:     'bg-green-100 text-green-700 border-green-200',
-  INACTIVE:   'bg-gray-100 text-gray-600 border-gray-200',
-  RESTRICTED: 'bg-amber-100 text-amber-700 border-amber-200',
-  CLOSED:     'bg-red-100 text-red-700 border-red-200',
-};
-
-const CROWD_COLORS: Record<CrowdLevel, string> = {
-  LOW:      'bg-green-100 text-green-700 border-green-200',
-  NORMAL:   'bg-blue-100 text-blue-700 border-blue-200',
-  MEDIUM:   'bg-amber-100 text-amber-700 border-amber-200',
-  HIGH:     'bg-orange-100 text-orange-700 border-orange-200',
-  CRITICAL: 'bg-red-100 text-red-700 border-red-200',
 };
 
 /* ─── Sectors Client ─────────────────────────────────────── */
@@ -85,49 +45,44 @@ export default function SectorsClient() {
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-  // Realtime subscription (read is fine via anon + public RLS policy)
+  // Realtime subscription
   useEffect(() => {
     const channel = supabase
       .channel('admin_sectors_rt')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sectors' }, () => {
         queryClient.invalidateQueries({ queryKey: ['admin_sectors'] });
+        queryClient.invalidateQueries({ queryKey: ['sectors'] });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [queryClient]);
 
-  /* ── Fetch (anon client — public read policy allows this) ── */
+  /* ── Fetch ─────────────────────────────────────────────── */
   const { data: sectors, isLoading } = useQuery({
     queryKey: ['admin_sectors'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('sectors')
         .select('*')
-        .order('display_order')
-        .order('name');
+        .order('created_at');
       if (error) throw error;
       return data as Sector[];
     },
   });
 
-  /* ── Create / Update — via API route (service role) ─────── */
+  /* ── Create / Update ────────────────────────────────────── */
   const saveMutation = useMutation({
     mutationFn: async (payload: SectorForm) => {
-      const { lat, lng, ...rest } = payload;
-      const centroid = typeof lat === 'number' && typeof lng === 'number'
-        ? { type: 'Point', coordinates: [lng, lat] }
-        : null;
-      const body = { ...rest, centroid };
       const res = editingId
         ? await fetch('/api/admin/sectors', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: editingId, ...body }),
+            body: JSON.stringify({ id: editingId, ...payload }),
           })
         : await fetch('/api/admin/sectors', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
+            body: JSON.stringify(payload),
           });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? 'Save failed');
@@ -135,12 +90,13 @@ export default function SectorsClient() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin_sectors'] });
+      queryClient.invalidateQueries({ queryKey: ['sectors'] });
       closeForm();
     },
     onError: (e: Error) => setError(e.message),
   });
 
-  /* ── Delete — via API route (service role) ───────────────── */
+  /* ── Delete ─────────────────────────────────────────────── */
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/admin/sectors?id=${id}`, { method: 'DELETE' });
@@ -149,6 +105,7 @@ export default function SectorsClient() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin_sectors'] });
+      queryClient.invalidateQueries({ queryKey: ['sectors'] });
       setDeleteConfirm(null);
     },
     onError: (e: Error) => setError(e.message),
@@ -164,18 +121,11 @@ export default function SectorsClient() {
 
   function openEdit(s: Sector) {
     setEditingId(s.id);
-    const [lng, lat] = s.centroid?.coordinates ?? ['', ''];
     setForm({
       name: s.name,
       name_te: s.name_te,
       description: s.description ?? '',
       description_te: s.description_te ?? '',
-      slug: s.slug,
-      status: s.status,
-      crowd_level: s.crowd_level,
-      display_order: s.display_order,
-      lat: typeof lat === 'number' ? lat : '',
-      lng: typeof lng === 'number' ? lng : '',
     });
     setError(null);
     setShowForm(true);
@@ -190,19 +140,10 @@ export default function SectorsClient() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name.trim()) { setError('Name (English) is required.'); return; }
-    if (!form.name_te.trim()) { setError('Name (Telugu) is required.'); return; }
-    if (!form.slug.trim()) { setError('Slug is required.'); return; }
+    if (!form.name.trim()) { setError('Sector Name (English) is required.'); return; }
+    if (!form.name_te.trim()) { setError('Sector Name (Telugu) is required.'); return; }
     saveMutation.mutate(form);
   }
-
-  const set = <K extends keyof SectorForm>(k: K, v: SectorForm[K]) => {
-    setForm((f) => ({
-      ...f,
-      [k]: v,
-      ...(k === 'name' ? { slug: toSlug(v as string) } : {}),
-    }));
-  };
 
   /* ── Render ─────────────────────────────────────────────── */
   return (
@@ -250,12 +191,9 @@ export default function SectorsClient() {
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Name (EN)</th>
-                <th>Name (TE)</th>
-                <th>Slug</th>
-                <th>Crowd Level</th>
-                <th>Status</th>
-                <th>Order</th>
+                <th>Name (English)</th>
+                <th>Name (Telugu)</th>
+                <th>Description</th>
                 <th></th>
               </tr>
             </thead>
@@ -264,17 +202,11 @@ export default function SectorsClient() {
                 <tr key={s.id}>
                   <td className="font-semibold" style={{ color: 'var(--color-text)' }}>
                     {s.name}
-                    {s.is_demo_data && (
-                      <span className="ml-2 badge text-[10px]" style={{ background: 'var(--color-info-bg)', color: 'var(--color-info)', border: '1px solid #BFDBFE' }}>
-                        DEMO
-                      </span>
-                    )}
                   </td>
                   <td style={{ color: 'var(--color-text-secondary)', fontFamily: 'var(--font-telugu)' }}>{s.name_te}</td>
-                  <td className="font-mono text-xs" style={{ color: 'var(--color-text-muted)' }}>{s.slug}</td>
-                  <td><span className={cn('badge', CROWD_COLORS[s.crowd_level])}>{s.crowd_level}</span></td>
-                  <td><span className={cn('badge', STATUS_COLORS[s.status])}>{s.status}</span></td>
-                  <td className="text-sm" style={{ color: 'var(--color-text-muted)' }}>{s.display_order}</td>
+                  <td className="text-sm max-w-xs truncate" style={{ color: 'var(--color-text-muted)' }}>
+                    {s.description ?? '—'}
+                  </td>
                   <td>
                     <div className="flex items-center gap-1.5">
                       <button
@@ -360,7 +292,7 @@ export default function SectorsClient() {
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+            <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
               {error && (
                 <div className="px-3 py-2 rounded-xl text-sm flex items-center gap-2"
                   style={{ background: 'var(--color-danger-bg)', color: 'var(--color-danger)', border: '1px solid #FECACA' }}>
@@ -368,131 +300,69 @@ export default function SectorsClient() {
                 </div>
               )}
 
-              {/* Name row */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label">Name (English) *</label>
-                  <input
-                    className="input"
-                    value={form.name}
-                    onChange={(e) => set('name', e.target.value)}
-                    placeholder="e.g. Indrakeeladri Hill"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="label">Name (Telugu) *</label>
-                  <input
-                    className="input"
-                    value={form.name_te}
-                    onChange={(e) => set('name_te', e.target.value)}
-                    placeholder="ఇంద్రకీలాద్రి కొండ"
-                    style={{ fontFamily: 'var(--font-telugu)' }}
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Slug */}
+              {/* Sector Name */}
               <div>
-                <label className="label">Slug *</label>
-                <input
-                  className="input font-mono text-sm"
-                  value={form.slug}
-                  onChange={(e) => set('slug', toSlug(e.target.value))}
-                  placeholder="indrakeeladri-hill"
-                  required
-                />
-                <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>Auto-generated from name. Must be unique.</p>
-              </div>
-
-              {/* Descriptions */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label">Description (EN)</label>
-                  <textarea
-                    className="input resize-none"
-                    rows={2}
-                    value={form.description}
-                    onChange={(e) => set('description', e.target.value)}
-                    placeholder="Brief description…"
-                  />
+                <div className="flex items-center gap-2 mb-3">
+                  <Globe size={14} style={{ color: 'var(--color-text-muted)' }} />
+                  <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>
+                    Sector Name
+                  </span>
                 </div>
-                <div>
-                  <label className="label">Description (TE)</label>
-                  <textarea
-                    className="input resize-none"
-                    rows={2}
-                    value={form.description_te}
-                    onChange={(e) => set('description_te', e.target.value)}
-                    placeholder="వివరణ…"
-                    style={{ fontFamily: 'var(--font-telugu)' }}
-                  />
-                </div>
-              </div>
-
-              {/* Status + Crowd + Order */}
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="label">Status</label>
-                  <div className="relative">
-                    <select className="select pr-8" value={form.status} onChange={(e) => set('status', e.target.value as Status)}>
-                      <option value="ACTIVE">Active</option>
-                      <option value="INACTIVE">Inactive</option>
-                      <option value="RESTRICTED">Restricted</option>
-                      <option value="CLOSED">Closed</option>
-                    </select>
-                    <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--color-text-muted)' }} />
+                <div className="space-y-3">
+                  <div>
+                    <label className="label">English *</label>
+                    <input
+                      className="input"
+                      value={form.name}
+                      onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))}
+                      placeholder="e.g. Indrakeeladri Hill"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Telugu *</label>
+                    <input
+                      className="input"
+                      value={form.name_te}
+                      onChange={(e) => setForm(f => ({ ...f, name_te: e.target.value }))}
+                      placeholder="ఇంద్రకీలాద్రి కొండ"
+                      style={{ fontFamily: 'var(--font-telugu)' }}
+                      required
+                    />
                   </div>
                 </div>
-                <div>
-                  <label className="label">Crowd Level</label>
-                  <div className="relative">
-                    <select className="select pr-8" value={form.crowd_level} onChange={(e) => set('crowd_level', e.target.value as CrowdLevel)}>
-                      <option value="LOW">Low</option>
-                      <option value="NORMAL">Normal</option>
-                      <option value="MEDIUM">Medium</option>
-                      <option value="HIGH">High</option>
-                      <option value="CRITICAL">Critical</option>
-                    </select>
-                    <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--color-text-muted)' }} />
-                  </div>
-                </div>
-                <div>
-                  <label className="label">Display Order</label>
-                  <input
-                    className="input"
-                    type="number"
-                    min={0}
-                    value={form.display_order}
-                    onChange={(e) => set('display_order', Number(e.target.value))}
-                  />
-                </div>
               </div>
 
-              {/* Coordinates (Centroid) */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label">Latitude (Centroid)</label>
-                  <input
-                    type="number"
-                    step="any"
-                    className="input"
-                    value={form.lat}
-                    onChange={(e) => set('lat', e.target.value === '' ? '' : parseFloat(e.target.value))}
-                    placeholder="16.5154"
-                  />
+              {/* Sector Description */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Globe size={14} style={{ color: 'var(--color-text-muted)' }} />
+                  <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>
+                    Sector Description
+                  </span>
                 </div>
-                <div>
-                  <label className="label">Longitude (Centroid)</label>
-                  <input
-                    type="number"
-                    step="any"
-                    className="input"
-                    value={form.lng}
-                    onChange={(e) => set('lng', e.target.value === '' ? '' : parseFloat(e.target.value))}
-                    placeholder="80.6065"
-                  />
+                <div className="space-y-3">
+                  <div>
+                    <label className="label">English</label>
+                    <textarea
+                      className="input resize-none"
+                      rows={3}
+                      value={form.description}
+                      onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))}
+                      placeholder="Brief description of this sector…"
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Telugu</label>
+                    <textarea
+                      className="input resize-none"
+                      rows={3}
+                      value={form.description_te}
+                      onChange={(e) => setForm(f => ({ ...f, description_te: e.target.value }))}
+                      placeholder="వివరణ…"
+                      style={{ fontFamily: 'var(--font-telugu)' }}
+                    />
+                  </div>
                 </div>
               </div>
 

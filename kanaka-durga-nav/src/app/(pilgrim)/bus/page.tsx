@@ -97,7 +97,7 @@ export default function BusPage() {
 
                 {location.description && (
                   <p className="text-xs sm:text-sm text-text-muted leading-relaxed bg-blue-50/40 p-3 rounded-xl border border-blue-100/60 mb-4">
-                    {locale === 'te' ? location.description_te : location.description}
+                    {location.description}
                   </p>
                 )}
 

@@ -45,7 +45,7 @@ export function useLocationCategories() {
 }
 
 // ============================================================
-// SECTORS
+// SECTORS — Phase 2: no status/slug/display_order filter
 // ============================================================
 export function useSectors() {
   const queryClient = useQueryClient();
@@ -57,8 +57,7 @@ export function useSectors() {
         const { data, error } = await supabase
           .from('sectors')
           .select('*')
-          .neq('status', 'CLOSED')
-          .order('display_order');
+          .order('created_at');
         if (error || !data || data.length === 0) return DEMO_SECTORS;
         return data as Sector[];
       } catch (e) {
@@ -91,15 +90,14 @@ export function useSubSectors(sectorId?: string) {
     queryKey: ['sub_sectors', sectorId],
     queryFn: async () => {
       try {
-        let query = supabase
+        let q = supabase
           .from('sub_sectors')
           .select('*, sector:sectors(*)')
-          .neq('status', 'CLOSED')
-          .order('display_order');
+          .order('created_at');
         if (sectorId) {
-          query = query.eq('sector_id', sectorId);
+          q = q.eq('sector_id', sectorId);
         }
-        const { data, error } = await query;
+        const { data, error } = await q;
         if (error || !data) return [];
         return data as SubSector[];
       } catch {
@@ -134,22 +132,20 @@ export function useLocations(categorySlug?: string) {
     queryKey: ['locations', categorySlug],
     queryFn: async () => {
       try {
-        let query = supabase
+        let q = supabase
           .from('locations')
           .select('*, category:location_categories(*), sector:sectors(*), sub_sector:sub_sectors(*)')
-          .in('status', ['ACTIVE', 'TEMPORARY'])
-          .order('display_order');
+          .order('created_at');
 
         if (categorySlug) {
-          query = supabase
+          q = supabase
             .from('locations')
             .select('*, category:location_categories!inner(*), sector:sectors(*), sub_sector:sub_sectors(*)')
             .eq('location_categories.slug', categorySlug)
-            .in('status', ['ACTIVE', 'TEMPORARY'])
-            .order('display_order');
+            .order('created_at');
         }
 
-        const { data, error } = await query;
+        const { data, error } = await q;
         if (error || !data || data.length === 0) {
           if (categorySlug) {
             return DEMO_LOCATIONS.filter((l) => l.category?.slug === categorySlug);
@@ -167,7 +163,7 @@ export function useLocations(categorySlug?: string) {
     },
   });
 
-  // Realtime: when admin adds/edits/deletes a location/sector/sub-sector, refresh all pilgrim views
+  // Realtime: refresh when locations/sectors/sub-sectors change
   useEffect(() => {
     try {
       const channel = supabase
@@ -236,7 +232,6 @@ export function useDarshanQueues() {
     },
   });
 
-  // Realtime subscription (safe try-catch)
   useEffect(() => {
     try {
       const channel = supabase
@@ -245,12 +240,7 @@ export function useDarshanQueues() {
           queryClient.invalidateQueries({ queryKey: ['darshan_queues'] });
         })
         .subscribe();
-
-      return () => {
-        try {
-          supabase.removeChannel(channel);
-        } catch {}
-      };
+      return () => { try { supabase.removeChannel(channel); } catch {} };
     } catch {}
   }, [queryClient]);
 
@@ -288,12 +278,7 @@ export function useParkingAreas() {
           queryClient.invalidateQueries({ queryKey: ['parking_areas'] });
         })
         .subscribe();
-
-      return () => {
-        try {
-          supabase.removeChannel(channel);
-        } catch {}
-      };
+      return () => { try { supabase.removeChannel(channel); } catch {} };
     } catch {}
   }, [queryClient]);
 
@@ -336,12 +321,7 @@ export function useAnnouncements() {
           queryClient.invalidateQueries({ queryKey: ['announcements'] });
         })
         .subscribe();
-
-      return () => {
-        try {
-          supabase.removeChannel(channel);
-        } catch {}
-      };
+      return () => { try { supabase.removeChannel(channel); } catch {} };
     } catch {}
   }, [queryClient]);
 
@@ -418,12 +398,7 @@ export function useCrowdStatus() {
           queryClient.invalidateQueries({ queryKey: ['sectors'] });
         })
         .subscribe();
-
-      return () => {
-        try {
-          supabase.removeChannel(channel);
-        } catch {}
-      };
+      return () => { try { supabase.removeChannel(channel); } catch {} };
     } catch {}
   }, [queryClient]);
 
@@ -462,12 +437,7 @@ export function useActiveClosures() {
           queryClient.invalidateQueries({ queryKey: ['route_closures'] });
         })
         .subscribe();
-
-      return () => {
-        try {
-          supabase.removeChannel(channel);
-        } catch {}
-      };
+      return () => { try { supabase.removeChannel(channel); } catch {} };
     } catch {}
   }, [queryClient]);
 
@@ -475,7 +445,8 @@ export function useActiveClosures() {
 }
 
 // ============================================================
-// ADMIN — ALL SECTORS (including non-public ones, for dashboard)
+// ADMIN — ALL SECTORS (for dashboard/selectors)
+// Phase 2: no crowd_level or status fields
 // ============================================================
 export function useAdminSectors() {
   const queryClient = useQueryClient();
@@ -486,12 +457,12 @@ export function useAdminSectors() {
       try {
         const { data, error } = await supabase
           .from('sectors')
-          .select('id, name, crowd_level, status')
-          .order('display_order');
-        if (error || !data) return [] as Array<{ id: string; name: string; crowd_level: string; status: string }>;
-        return data as Array<{ id: string; name: string; crowd_level: string; status: string }>;
+          .select('id, name, name_te')
+          .order('created_at');
+        if (error || !data) return [] as Array<{ id: string; name: string; name_te: string }>;
+        return data as Array<{ id: string; name: string; name_te: string }>;
       } catch {
-        return [] as Array<{ id: string; name: string; crowd_level: string; status: string }>;
+        return [] as Array<{ id: string; name: string; name_te: string }>;
       }
     },
   });
@@ -502,9 +473,8 @@ export function useAdminSectors() {
         .channel('admin_sectors_realtime')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'sectors' }, () => {
           queryClient.invalidateQueries({ queryKey: ['admin_sectors'] });
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'crowd_status' }, () => {
-          queryClient.invalidateQueries({ queryKey: ['admin_sectors'] });
+          queryClient.invalidateQueries({ queryKey: ['sectors'] });
+          queryClient.invalidateQueries({ queryKey: ['sub_sectors'] });
         })
         .subscribe();
       return () => { try { supabase.removeChannel(channel); } catch {} };
@@ -589,4 +559,3 @@ export function useAdminParkingStatus() {
 
   return query;
 }
-

@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations, useLocale } from 'next-intl';
-import { Utensils, Navigation, Clock, MapPin, Heart } from 'lucide-react';
+import { Utensils, Navigation, MapPin, Heart } from 'lucide-react';
 import { useLocations } from '@/hooks/use-data';
 import { LoadingSpinner, ErrorState, EmptyState, DemoBanner } from '@/components/shared/status-components';
 import Link from 'next/link';
@@ -88,18 +88,12 @@ export default function FoodPage() {
                     <h3 className="font-bold text-base sm:text-lg text-(--color-text)">
                       {locale === 'te' ? location.name_te : location.name}
                     </h3>
-                    {location.operating_hours && (
-                      <div className="flex items-center gap-1.5 text-xs text-orange-700 font-semibold mt-1">
-                        <Clock size={12} />
-                        <span>{location.operating_hours}</span>
-                      </div>
-                    )}
                   </div>
                 </div>
 
                 {location.description && (
                   <p className="text-xs sm:text-sm text-text-muted leading-relaxed bg-orange-50/40 p-3 rounded-xl border border-orange-100/60 mb-4">
-                    {locale === 'te' ? location.description_te : location.description}
+                    {location.description}
                   </p>
                 )}
 

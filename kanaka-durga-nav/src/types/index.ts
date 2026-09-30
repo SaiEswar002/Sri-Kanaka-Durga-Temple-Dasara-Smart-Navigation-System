@@ -1,4 +1,5 @@
 // Core database types matching our Supabase schema exactly
+// Phase 2: Simplified sector/sub-sector/location models
 
 export type UUID = string;
 export type Timestamp = string; // ISO 8601
@@ -6,9 +7,10 @@ export type Timestamp = string; // ISO 8601
 // ============================================================
 // ENUMS
 // ============================================================
-export type SectorStatus = 'ACTIVE' | 'INACTIVE' | 'RESTRICTED' | 'CLOSED';
+// NOTE: SectorStatus / LocationStatus removed — sectors and locations
+// no longer carry operational status fields. CrowdLevel stays because
+// crowd_status table still uses it as an operational concept.
 export type CrowdLevel = 'LOW' | 'NORMAL' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-export type LocationStatus = 'ACTIVE' | 'INACTIVE' | 'TEMPORARY' | 'CLOSED';
 export type QueueType = 'GENERAL' | 'SPECIAL' | 'VIP' | 'DIVYANG' | 'SEVAS';
 export type QueueStatus = 'OPEN' | 'CLOSED' | 'SUSPENDED' | 'FULL';
 export type ParkingType = 'PUBLIC' | 'RESERVED' | 'EMERGENCY' | 'SHUTTLE';
@@ -50,43 +52,34 @@ export interface LngLat {
 }
 
 // ============================================================
-// CORE DB TYPES
+// CORE DB TYPES — Phase 2 simplified models
 // ============================================================
+
+/**
+ * Sector — identity/information only.
+ * No operational fields (status, crowd, coordinates, order).
+ */
 export interface Sector {
   id: UUID;
-  name: string;
-  name_te: string;
+  name: string;       // English name
+  name_te: string;    // Telugu name
   description: string | null;
   description_te: string | null;
-  slug: string;
-  geometry: GeoPolygon | null;
-  centroid: GeoPoint | null;
-  status: SectorStatus;
-  crowd_level: CrowdLevel;
-  crowd_updated_at: Timestamp | null;
-  crowd_source: string;
-  metadata: Record<string, unknown>;
-  display_order: number;
   created_at: Timestamp;
   updated_at: Timestamp;
 }
 
+/**
+ * SubSector — identity/information + parent sector FK.
+ * No operational fields.
+ */
 export interface SubSector {
   id: UUID;
   sector_id: UUID;
-  name: string;
-  name_te: string;
+  name: string;       // English name
+  name_te: string;    // Telugu name
   description: string | null;
   description_te: string | null;
-  slug: string;
-  geometry: GeoPolygon | null;
-  centroid: GeoPoint | null;
-  status: SectorStatus;
-  crowd_level: CrowdLevel;
-  crowd_updated_at: Timestamp | null;
-  crowd_source: string;
-  metadata: Record<string, unknown>;
-  display_order: number;
   created_at: Timestamp;
   updated_at: Timestamp;
   // Joined
@@ -105,6 +98,11 @@ export interface LocationCategory {
   created_at: Timestamp;
 }
 
+/**
+ * Location — the spatial entity used by map and navigation.
+ * latitude/longitude stored via PostGIS 'position' column.
+ * Removed: contact, status, operating_hours, accessibility, display_order.
+ */
 export interface Location {
   id: UUID;
   name: string;
@@ -112,20 +110,9 @@ export interface Location {
   category_id: UUID;
   sector_id: UUID | null;
   sub_sector_id: UUID | null;
-  position: GeoPoint;
-  status: LocationStatus;
+  position: GeoPoint;   // [lng, lat] — required for map markers
   description: string | null;
-  description_te: string | null;
   address: string | null;
-  address_te: string | null;
-  contact_phone: string | null;
-  contact_name: string | null;
-  operating_hours: string | null;
-  capacity: number | null;
-  is_accessible: boolean;
-  is_demo_data: boolean;
-  metadata: Record<string, unknown>;
-  display_order: number;
   created_at: Timestamp;
   updated_at: Timestamp;
   // Joined
