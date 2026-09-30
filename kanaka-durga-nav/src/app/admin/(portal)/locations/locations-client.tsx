@@ -7,7 +7,6 @@ import {
   Plus, Trash2, Edit3, MapPin, RefreshCw, X, AlertCircle,
   CheckCircle2, ChevronDown, Search
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import type { Location, LocationCategory, Sector } from '@/types';
 
 const supabase = createClient();

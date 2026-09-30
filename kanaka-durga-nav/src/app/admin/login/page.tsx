@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Eye, EyeOff, Shield, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { z } from 'zod';
 
 const loginSchema = z.object({
@@ -59,10 +60,18 @@ export default function AdminLoginPage() {
   return (
     <div className="min-h-screen bg-linear-to-br from-primary-dark to-primary flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8">
-        {/* Logo */}
+        {/* Logo — Durga Maa */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-full bg-primary-subtle flex items-center justify-center mx-auto mb-4">
-            <Shield size={28} className="text-primary" aria-hidden />
+          <div className="w-20 h-20 rounded-full overflow-hidden mx-auto mb-4 shadow-lg"
+            style={{ border: '3px solid var(--color-primary-muted)', boxShadow: '0 0 0 4px var(--color-primary-subtle)' }}>
+            <Image
+              src="/Durgamaatha_pic.jpeg"
+              alt="Sri Kanaka Durga Maa"
+              width={80}
+              height={80}
+              className="w-full h-full object-cover"
+              priority
+            />
           </div>
           <h1 className="text-xl font-bold text-(--color-text)">Admin Portal</h1>
           <p className="text-sm text-text-muted mt-1">Sri Kanaka Durga Temple Navigation System</p>

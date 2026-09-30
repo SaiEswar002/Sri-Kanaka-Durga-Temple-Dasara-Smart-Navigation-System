@@ -7,7 +7,7 @@ import {
   Plus, Trash2, Edit3, MapPin, RefreshCw, X,
   CheckCircle2, AlertCircle, Globe
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+
 
 const supabase = createClient();
 

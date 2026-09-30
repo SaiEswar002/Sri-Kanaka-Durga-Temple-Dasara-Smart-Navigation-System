@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Map, Users, Car, Clock, Megaphone,
-  AlertTriangle, Camera, MapPin, GitBranch, Bus, Settings, LogOut,
-  ChevronRight, Shield, Menu, X, ArrowLeft, ClipboardList,
+  AlertTriangle, Camera, MapPin, GitBranch, Settings, LogOut,
+  ChevronRight, Shield, Menu, X, ArrowLeft, ClipboardList, Layers,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
@@ -29,38 +30,26 @@ const NAV_GROUPS = [
       { href: '/admin/announcements', icon: Megaphone,     label: 'Announcements' },
       { href: '/admin/closures',      icon: GitBranch,     label: 'Route Closures' },
       { href: '/admin/emergency',     icon: AlertTriangle, label: 'Emergency' },
-      { href: '/admin/buses',         icon: Bus,           label: 'Buses' },
     ],
   },
   {
     label: 'Data',
     items: [
-      { href: '/admin/sectors',     icon: MapPin, label: 'Sectors' },
-      { href: '/admin/sub-sectors', icon: MapPin, label: 'Sub-Sectors' },
-      { href: '/admin/locations',   icon: MapPin, label: 'Locations' },
-      { href: '/admin/cameras',     icon: Camera, label: 'Cameras' },
+      { href: '/admin/sectors',     icon: MapPin,  label: 'Sectors' },
+      { href: '/admin/sub-sectors', icon: Layers,  label: 'Sub-Sectors' },
+      { href: '/admin/locations',   icon: MapPin,  label: 'Locations' },
+      { href: '/admin/cameras',     icon: Camera,  label: 'Cameras' },
     ],
   },
   {
     label: 'Admin',
     items: [
-      { href: '/admin/users',       icon: Shield,         label: 'Users & Roles' },
-      { href: '/admin/audit-logs',  icon: ClipboardList,  label: 'Audit Logs' },
-      { href: '/admin/system',      icon: Settings,       label: 'System' },
+      { href: '/admin/users',      icon: Shield,        label: 'Users & Roles' },
+      { href: '/admin/audit-logs', icon: ClipboardList, label: 'Audit Logs' },
+      { href: '/admin/system',     icon: Settings,      label: 'System' },
     ],
   },
 ];
-
-// Temple diya icon for sidebar brand
-function TempleIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 2C10.5 2 9.5 3 9.5 4.5C9.5 6 10.5 7 12 7C13.5 7 14.5 6 14.5 4.5C14.5 3 13.5 2 12 2Z" fill="#D4A017"/>
-      <path d="M12 8C9 8 7 10 7 13C7 16 9 18 12 22C15 18 17 16 17 13C17 10 15 8 12 8Z" fill="#9B1C31"/>
-      <circle cx="12" cy="13" r="2" fill="#FFF0F2" opacity="0.9"/>
-    </svg>
-  );
-}
 
 export function AdminSidebar() {
   const pathname = usePathname();
@@ -77,17 +66,23 @@ export function AdminSidebar() {
   const navContent = (
     <div className="flex flex-col h-full" style={{ background: 'var(--color-surface)', borderRight: '1px solid var(--color-border)' }}>
 
-      {/* ── Brand ──────────────────────────────────────────── */}
+      {/* ── Brand ──────────────────────────────────────────────── */}
       <div
-        className="px-4 py-4 flex items-center justify-between"
+        className="px-4 py-3 flex items-center justify-between"
         style={{ borderBottom: '1px solid var(--color-border)' }}
       >
         <Link href="/admin/dashboard" className="flex items-center gap-2.5 no-underline group" aria-label="Admin Dashboard">
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform"
-            style={{ background: 'var(--color-primary-subtle)', border: '1px solid var(--color-primary-muted)' }}
-          >
-            <TempleIcon />
+          {/* Durga Maa photo logo */}
+          <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 group-hover:scale-105 transition-transform"
+            style={{ border: '1.5px solid var(--color-primary-muted)', boxShadow: '0 0 0 2px var(--color-primary-subtle)' }}>
+            <Image
+              src="/Durgamaatha_pic.jpeg"
+              alt="Sri Kanaka Durga"
+              width={36}
+              height={36}
+              className="w-full h-full object-cover"
+              priority
+            />
           </div>
           <div>
             <p
@@ -116,7 +111,7 @@ export function AdminSidebar() {
         )}
       </div>
 
-      {/* ── Navigation Groups ─────────────────────────────── */}
+      {/* ── Navigation Groups ───────────────────────────────────── */}
       <nav className="flex-1 py-3 px-3 overflow-y-auto space-y-4" aria-label="Admin navigation">
         {NAV_GROUPS.map((group) => (
           <div key={group.label}>
@@ -136,9 +131,7 @@ export function AdminSidebar() {
                     onClick={() => setIsMobileOpen(false)}
                     className={cn(
                       'flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-semibold transition-all',
-                      isActive
-                        ? 'text-white shadow-sm'
-                        : 'hover:text-gray-900'
+                      isActive ? 'text-white shadow-sm' : 'hover:text-gray-900'
                     )}
                     style={isActive
                       ? { background: 'var(--color-primary)', color: 'white', fontFamily: 'var(--font-sans)' }
@@ -160,7 +153,7 @@ export function AdminSidebar() {
       {/* Gold accent divider */}
       <div className="divider-temple mx-4" />
 
-      {/* ── Bottom Links ──────────────────────────────────── */}
+      {/* ── Bottom Links ─────────────────────────────────────────── */}
       <div className="p-3 space-y-1">
         <Link
           href="/"
@@ -199,12 +192,15 @@ export function AdminSidebar() {
           >
             <Menu size={20} />
           </button>
-          <span
-            className="font-bold text-sm"
-            style={{ color: 'var(--color-text)', fontFamily: 'var(--font-sans)' }}
-          >
-            Admin Command Center
-          </span>
+          {/* Mobile: logo + name */}
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-primary-muted)' }}>
+              <Image src="/Durgamaatha_pic.jpeg" alt="Sri Kanaka Durga" width={28} height={28} className="w-full h-full object-cover" />
+            </div>
+            <span className="font-bold text-sm" style={{ color: 'var(--color-text)', fontFamily: 'var(--font-sans)' }}>
+              Admin
+            </span>
+          </div>
         </div>
         <Link
           href="/"
