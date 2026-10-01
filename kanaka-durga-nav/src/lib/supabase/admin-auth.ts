@@ -51,18 +51,17 @@ export async function requireAdminAuth(
   request: NextRequest,
   required: string | null,
 ): Promise<AdminAuthResult> {
-  // Demo / placeholder bypass — dev-only convenience
-  const isDemo = request.cookies.get('admin_demo')?.value === '1';
+  // Placeholder bypass for local development without configured Supabase
   const isPlaceholder =
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
     process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder');
 
-  if (isDemo || isPlaceholder) {
+  if (isPlaceholder) {
     return {
       ok: true,
-      adminId: 'demo',
-      userId: 'demo',
-      email: 'demo@example.com',
+      adminId: 'dev-admin',
+      userId: 'dev-admin',
+      email: 'dev-admin@local.test',
       role: 'SUPER_ADMIN',
     };
   }

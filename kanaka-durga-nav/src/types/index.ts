@@ -180,6 +180,21 @@ export interface AdminUser {
   role?: Role;
 }
 
+/**
+ * Normal User Profile (Pilgrim user stored in public.profiles)
+ */
+export interface UserProfile {
+  id: UUID;
+  email: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
+  phone: string | null;
+  preferred_language: 'en' | 'te';
+  metadata?: Record<string, unknown>;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
 // ============================================================
 // APP TYPES (not DB-backed)
 // ============================================================

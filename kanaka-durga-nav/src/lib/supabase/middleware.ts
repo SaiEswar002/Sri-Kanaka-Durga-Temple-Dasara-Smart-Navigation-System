@@ -4,19 +4,18 @@ import { NextResponse, type NextRequest } from 'next/server';
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
-  // ── DEMO MODE & DEV PLACEHOLDER BYPASS ───────────────────────────────────
-  // Check BEFORE any Supabase calls so we don't hit a placeholder URL.
-  const isDemo = request.cookies.get('admin_demo')?.value === '1';
+  // ── DEV PLACEHOLDER BYPASS ───────────────────────────────────────────────
+  // Check BEFORE any Supabase calls so we don't hit a placeholder URL in local dev.
   const isPlaceholder =
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
     process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder');
 
-  // If demo cookie is set OR supabase is not configured, bypass auth for /admin
+  // If supabase is placeholder in dev, allow access; otherwise enforce auth
   if (request.nextUrl.pathname.startsWith('/admin')) {
     if (request.nextUrl.pathname === '/admin/login') {
       return supabaseResponse;
     }
-    if (isDemo || isPlaceholder) {
+    if (isPlaceholder) {
       return supabaseResponse;
     }
   }

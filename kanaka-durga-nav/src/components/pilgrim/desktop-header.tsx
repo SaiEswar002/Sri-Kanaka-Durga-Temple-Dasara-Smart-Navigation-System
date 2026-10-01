@@ -9,6 +9,7 @@ import {
   Home, Navigation, Car, Cross, Utensils, Shield
 } from 'lucide-react';
 import { LanguageToggle } from '@/components/shared/language-toggle';
+import { UserAuthMenu } from './user-auth-menu';
 import { cn } from '@/lib/utils';
 
 const DESKTOP_NAV_LINKS = [
@@ -32,21 +33,21 @@ export function PilgrimDesktopHeader() {
 
   return (
     <header
-      className="pilgrim-header hidden md:flex sticky top-0 z-40 text-white shadow-lg h-16 items-center"
+      className="pilgrim-header flex sticky top-0 z-40 text-white shadow-md h-14 md:h-16 items-center"
       role="banner"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full relative z-10">
-        <div className="flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 w-full relative z-10">
+        <div className="flex items-center justify-between gap-3">
 
           {/* ── Temple Brand ─────────────────────────────────── */}
           <Link
             href="/"
-            className="flex items-center gap-3 group text-white no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 rounded-lg shrink-0"
+            className="flex items-center gap-2.5 sm:gap-3 group text-white no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 rounded-lg shrink-0 min-w-0"
             aria-label="Sri Kanaka Durga Temple — Home"
           >
             {/* Durga Maa photo logo */}
-            <div className="w-10 h-10 rounded-full overflow-hidden shadow-inner group-hover:scale-105 transition-transform shrink-0"
-              style={{ border: '2px solid rgba(242,201,76,0.5)', boxShadow: '0 0 0 2px rgba(212,160,23,0.2)' }}
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden shadow-inner group-hover:scale-105 transition-transform shrink-0"
+              style={{ border: '2px solid rgba(242,201,76,0.6)', boxShadow: '0 0 0 2px rgba(212,160,23,0.25)' }}
             >
               <Image
                 src="/durgamaatha.jpeg"
@@ -59,19 +60,22 @@ export function PilgrimDesktopHeader() {
             </div>
 
             {/* Name — Cinzel for temple brand */}
-            <div className="hidden lg:block">
+            <div className="min-w-0">
               <p
-                className="font-display text-sm font-semibold tracking-wide text-white leading-tight whitespace-nowrap"
-                style={{ fontFamily: "'Cinzel', Georgia, serif", fontWeight: 600, letterSpacing: '0.04em' }}
+                className="text-xs sm:text-sm font-bold tracking-wide text-white leading-tight truncate"
+                style={{
+                  fontFamily: locale === 'te' ? 'var(--font-telugu)' : "'Cinzel', Georgia, serif",
+                  letterSpacing: locale === 'te' ? '0' : '0.02em'
+                }}
               >
-                Sri Kanaka Durga Temple
+                {locale === 'te' ? 'శ్రీ కనక దుర్గమ్మ దేవస్థానం' : 'Sri Kanaka Durga Temple'}
               </p>
-              <div className="flex items-center gap-2 mt-0.5">
-                <p className="text-[11px] text-white/65 whitespace-nowrap" style={{ fontFamily: "'Forum', Georgia, serif" }}>
-                  Smart Navigation • Vijayawada
+              <div className="hidden sm:flex items-center gap-2 mt-0.5">
+                <p className="text-[10px] sm:text-[11px] text-white/70 whitespace-nowrap" style={{ fontFamily: locale === 'te' ? 'var(--font-telugu)' : "'Forum', Georgia, serif" }}>
+                  {locale === 'te' ? 'ఇంద్రకీలాద్రి, విజయవాడ' : 'Indrakeeladri, Vijayawada'}
                 </p>
                 <span
-                  className="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider whitespace-nowrap"
+                  className="text-[8px] sm:text-[9px] font-bold px-1.5 py-0.2 rounded uppercase tracking-wider whitespace-nowrap"
                   style={{ background: 'rgba(212,160,23,0.35)', color: '#F2C94C', border: '1px solid rgba(242,201,76,0.3)' }}
                 >
                   Dasara 2026
@@ -80,9 +84,9 @@ export function PilgrimDesktopHeader() {
             </div>
           </Link>
 
-          {/* ── Center Nav Links ──────────────────────────────── */}
+          {/* ── Center Nav Links (Tablet & Desktop) ────────────── */}
           {mounted && (
-            <nav className="flex items-center gap-1 flex-1 justify-center" aria-label="Desktop navigation">
+            <nav className="hidden md:flex items-center gap-1 flex-1 justify-center" aria-label="Desktop navigation">
               {DESKTOP_NAV_LINKS.map(({ href, icon: Icon, labelKey, labelTe }) => {
                 const isActive = pathname === href;
                 return (
@@ -112,17 +116,13 @@ export function PilgrimDesktopHeader() {
           {/* ── Right Actions ─────────────────────────────────── */}
           <div className="flex items-center gap-2 shrink-0">
             {mounted && <LanguageToggle currentLocale={locale} />}
+            {mounted && <UserAuthMenu />}
             <Link
-              href="/admin/dashboard"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap"
-              style={{
-                background: 'rgba(212,160,23,0.18)',
-                color: '#F2C94C',
-                border: '1px solid rgba(212,160,23,0.3)',
-              }}
-              title="Admin Command Center"
+              href="/admin/login"
+              className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white/90 hover:text-white text-xs font-semibold transition-all shadow-xs"
+              title="Temple Administration Portal"
             >
-              <Shield size={13} aria-hidden />
+              <Shield size={13} className="text-amber-300" aria-hidden="true" />
               <span>Admin</span>
             </Link>
           </div>

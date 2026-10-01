@@ -29,20 +29,40 @@
     "navigate": "Navigate"
   },
   "home": {
+    "templeName": "Sri Kanaka Durga Temple",
+    "templeTagline": "Indrakeeladri, Vijayawada • Dasara 2026",
+    "heroTitle": "Navigate the temple premises quickly and easily.",
+    "heroSubtitle": "Live GPS directions to parking, food, medical camps, and temple facilities.",
+    "startNavigation": "Start Navigation",
+    "openLiveMap": "Open Live Map",
+    "locationActive": "GPS Active",
+    "locationDenied": "Location not shared",
+    "locationPrompt": "Enable GPS for live directions",
+    "quickActions": "Quick Actions",
+    "quickActionsSubtitle": "Find essential temple facilities and services",
+    "actions": {
+      "map": "Live Map",
+      "mapDesc": "Explore temple facilities",
+      "parking": "Parking",
+      "parkingDesc": "Find available parking",
+      "medical": "Medical",
+      "medicalDesc": "Find medical help",
+      "food": "Annadanam",
+      "foodDesc": "Find food distribution"
+    },
+    "help": {
+      "title": "Need medical help?",
+      "subtitle": "Direct one-tap emergency calling",
+      "call108": "Call 108",
+      "call112": "Call 112"
+    },
+    "footer": {
+      "temple": "Sri Kanaka Durga Temple • Indrakeeladri, Vijayawada",
+      "event": "Dasara Navaratri Mahotsavam 2026 • Smart Navigation System"
+    },
     "welcome": "Welcome, Pilgrim",
     "welcomeSubtitle": "Sri Kanaka Durga Temple — Dasara Festival",
-    "locationGranted": "Location active",
-    "locationDenied": "Location not shared",
-    "locationPrompt": "Share your location for better navigation",
-    "enableLocation": "Enable Location",
-    "categories": {
-      "parking": "Parking",
-      "parkingcaption": "Find & Navigate",
-      "medical": "Medical",
-      "medicalcaption": "First Aid & Help",
-      "food": "Food",
-      "foodcaption": "Annadanam"
-    }
+    "locationGranted": "Location active"
   },
   "parking": {
     "title": "Parking",

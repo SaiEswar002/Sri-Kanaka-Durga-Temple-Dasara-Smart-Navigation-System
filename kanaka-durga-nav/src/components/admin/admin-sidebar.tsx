@@ -47,9 +47,9 @@ export function AdminSidebar() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const handleLogout = async () => {
-    document.cookie = 'admin_demo=; path=/; max-age=0; SameSite=Lax';
     await supabase.auth.signOut();
     router.push('/admin/login');
+    router.refresh();
   };
 
   const navContent = (

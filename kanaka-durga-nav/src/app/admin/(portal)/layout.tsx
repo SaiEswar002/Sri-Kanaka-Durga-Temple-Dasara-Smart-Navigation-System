@@ -1,21 +1,16 @@
 import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { AdminSidebar } from '@/components/admin/admin-sidebar';
 import type { ReactNode } from 'react';
 
 export default async function AdminPortalLayout({ children }: { children: ReactNode }) {
-  // Demo mode bypass — matches middleware cookie check
-  const cookieStore = await cookies();
-  const isDemo = cookieStore.get('admin_demo')?.value === '1';
-
   const isDevPlaceholder =
     process.env.NODE_ENV === 'development' &&
     (!process.env.NEXT_PUBLIC_SUPABASE_URL ||
       process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder'));
 
-  // Skip auth for demo mode or dev placeholder
-  if (!isDemo && !isDevPlaceholder) {
+  // Enforce real admin authentication unless in local offline placeholder dev
+  if (!isDevPlaceholder) {
     const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -23,16 +18,36 @@ export default async function AdminPortalLayout({ children }: { children: ReactN
       redirect('/admin/login');
     }
 
-    // Verify user is actually in admin_users table
-    const { data: adminUser } = await supabase
+    const serviceClient = createServiceRoleClient();
+
+    // Verify user is in admin_users table with an active admin role
+    let { data: adminUser } = await serviceClient
       .from('admin_users')
       .select('id, role:roles(slug)')
       .eq('auth_user_id', user.id)
       .eq('is_active', true)
-      .single();
+      .maybeSingle();
+
+    // If auth_user_id was not yet linked, link only if email matches a pre-provisioned active admin
+    if (!adminUser && user.email) {
+      const { data: adminByEmail } = await serviceClient
+        .from('admin_users')
+        .select('id, role:roles(slug)')
+        .eq('email', user.email.toLowerCase())
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (adminByEmail) {
+        await serviceClient
+          .from('admin_users')
+          .update({ auth_user_id: user.id, last_login_at: new Date().toISOString() })
+          .eq('id', adminByEmail.id);
+        adminUser = adminByEmail;
+      }
+    }
 
     if (!adminUser) {
-      redirect('/');
+      redirect('/admin/login?error=unauthorized');
     }
   }
 
