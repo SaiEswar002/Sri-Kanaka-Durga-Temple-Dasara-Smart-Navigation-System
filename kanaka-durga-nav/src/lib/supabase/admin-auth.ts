@@ -15,6 +15,9 @@ import { createServerClient } from '@supabase/ssr';
 import { createServiceRoleClient } from './server';
 import type { AdminRole } from '@/types';
 
+const DEFAULT_SUPABASE_URL = 'https://rqmkggkphnrqswbpolzd.supabase.co';
+const DEFAULT_SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxbWtnZ2twaG5ycXN3YnBvbHpkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NTQyODEsImV4cCI6MjEwNTAzMDI4MX0.oxqhkTpWuyoVsixtvowzAArpwVwmZV9ti6Jih8f6x-g';
+
 // Permission map mirroring the RBAC migration.
 // SUPER_ADMIN grants everything via the `all: true` wildcard.
 const ROLE_PERMISSIONS: Record<AdminRole, Record<string, boolean>> = {
@@ -52,9 +55,12 @@ export async function requireAdminAuth(
   required: string | null,
 ): Promise<AdminAuthResult> {
   // Placeholder bypass for local development without configured Supabase
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON;
+
   const isPlaceholder =
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder');
+    !supabaseUrl ||
+    supabaseUrl.includes('placeholder');
 
   if (isPlaceholder) {
     return {
@@ -74,8 +80,8 @@ export async function requireAdminAuth(
     let cookieResponse = NextResponse.next({ request });
 
     const anonClient = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      supabaseUrl,
+      supabaseAnonKey,
       {
         cookies: {
           getAll() {

@@ -1,13 +1,27 @@
 import { getRequestConfig } from 'next-intl/server';
 import { cookies } from 'next/headers';
+import enMessages from './locales/en.json';
+import teMessages from './locales/te.json';
+
+const messagesMap: Record<string, typeof enMessages> = {
+  en: enMessages,
+  te: teMessages,
+};
 
 export default getRequestConfig(async () => {
-  const cookieStore = await cookies();
-  const localeCookie = cookieStore.get('locale')?.value;
-  const locale = localeCookie === 'te' ? 'te' : 'en';
+  let locale = 'en';
+  try {
+    const cookieStore = await cookies();
+    const localeCookie = cookieStore.get('locale')?.value;
+    if (localeCookie === 'te') {
+      locale = 'te';
+    }
+  } catch {
+    locale = 'en';
+  }
 
   return {
     locale,
-    messages: (await import(`./locales/${locale}.json`)).default,
+    messages: messagesMap[locale] || enMessages,
   };
 });

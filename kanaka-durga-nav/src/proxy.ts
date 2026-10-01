@@ -1,16 +1,21 @@
 import { updateSession } from '@/lib/supabase/middleware';
-import type { NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 
 export async function proxy(request: NextRequest) {
-  // Run Supabase session update (handles auth + admin protection)
-  const supabaseResponse = await updateSession(request);
+  try {
+    // Run Supabase session update (handles auth + admin protection)
+    const supabaseResponse = await updateSession(request);
 
-  // If it's a redirect (auth protection), return it
-  if (supabaseResponse.status === 307 || supabaseResponse.status === 302) {
+    // If it's a redirect (auth protection), return it
+    if (supabaseResponse.status === 307 || supabaseResponse.status === 302) {
+      return supabaseResponse;
+    }
+
     return supabaseResponse;
+  } catch (error) {
+    console.error('[proxy] Unhandled error in request proxy:', error);
+    return NextResponse.next({ request });
   }
-
-  return supabaseResponse;
 }
 
 export const config = {

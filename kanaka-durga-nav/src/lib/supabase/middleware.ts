@@ -1,56 +1,67 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+const DEFAULT_SUPABASE_URL = 'https://rqmkggkphnrqswbpolzd.supabase.co';
+const DEFAULT_SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxbWtnZ2twaG5ycXN3YnBvbHpkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NTQyODEsImV4cCI6MjEwNTAzMDI4MX0.oxqhkTpWuyoVsixtvowzAArpwVwmZV9ti6Jih8f6x-g';
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
-  // ── DEV PLACEHOLDER BYPASS ───────────────────────────────────────────────
-  // Check BEFORE any Supabase calls so we don't hit a placeholder URL in local dev.
-  const isPlaceholder =
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder');
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON;
 
-  // If supabase is placeholder in dev, allow access; otherwise enforce auth
-  if (request.nextUrl.pathname.startsWith('/admin')) {
-    if (request.nextUrl.pathname === '/admin/login') {
-      return supabaseResponse;
-    }
-    if (isPlaceholder) {
-      return supabaseResponse;
-    }
+  // Check if we are running in an unconfigured placeholder dev environment
+  const isPlaceholder =
+    !supabaseUrl ||
+    !supabaseAnonKey ||
+    supabaseUrl.includes('placeholder');
+
+  // If in placeholder dev mode, skip remote auth checks gracefully
+  if (isPlaceholder) {
+    return supabaseResponse;
   }
 
-  // ── REAL SUPABASE AUTH (production only) ─────────────────────────────────
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          supabaseResponse = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
+  // Allow admin login page without restriction
+  if (request.nextUrl.pathname === '/admin/login') {
+    return supabaseResponse;
+  }
 
-  // Refresh session
-  const { data: { user } } = await supabase.auth.getUser();
+  try {
+    const supabase = createServerClient(
+      supabaseUrl,
+      supabaseAnonKey,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+            supabaseResponse = NextResponse.next({ request });
+            cookiesToSet.forEach(({ name, value, options }) =>
+              supabaseResponse.cookies.set(name, value, options)
+            );
+          },
+        },
+      }
+    );
 
-  // Protect admin routes (production)
-  if (request.nextUrl.pathname.startsWith('/admin')) {
-    if (!user) {
-      const loginUrl = request.nextUrl.clone();
-      loginUrl.pathname = '/admin/login';
-      loginUrl.searchParams.set('redirected', 'true');
-      return NextResponse.redirect(loginUrl);
+    // Refresh session
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Protect admin routes: redirect unauthenticated users to /admin/login
+    if (request.nextUrl.pathname.startsWith('/admin')) {
+      if (!user) {
+        const loginUrl = request.nextUrl.clone();
+        loginUrl.pathname = '/admin/login';
+        loginUrl.searchParams.set('redirected', 'true');
+        return NextResponse.redirect(loginUrl);
+      }
     }
+  } catch (err) {
+    // Prevent unhandled exceptions in middleware from crashing the site with HTTP 500
+    console.error('[updateSession] Error updating Supabase session in middleware:', err);
+    return supabaseResponse;
   }
 
   return supabaseResponse;
