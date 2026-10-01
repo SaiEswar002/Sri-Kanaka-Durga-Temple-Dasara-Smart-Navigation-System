@@ -192,3 +192,76 @@ describe('Remaining distance and ETA stability', () => {
   });
 });
 
+describe('Live Heading, Bearing & Dynamic ETA utilities', () => {
+  function calculateBearing(
+    start: { lat: number; lng: number },
+    end: { lat: number; lng: number }
+  ): number {
+    const startLat = (start.lat * Math.PI) / 180;
+    const startLng = (start.lng * Math.PI) / 180;
+    const endLat = (end.lat * Math.PI) / 180;
+    const endLng = (end.lng * Math.PI) / 180;
+    const dLng = endLng - startLng;
+    const y = Math.sin(dLng) * Math.cos(endLat);
+    const x =
+      Math.cos(startLat) * Math.sin(endLat) -
+      Math.sin(startLat) * Math.cos(endLat) * Math.cos(dLng);
+    const brng = (Math.atan2(y, x) * 180) / Math.PI;
+    return (brng + 360) % 360;
+  }
+
+  function smoothAngle(current: number, target: number, factor = 0.25): number {
+    const diff = ((target - current + 540) % 360) - 180;
+    if (Math.abs(diff) < 1.0) return current;
+    return (current + diff * factor + 360) % 360;
+  }
+
+  function computeEtaClock(remainingSec: number): string {
+    if (remainingSec <= 0) return '--:--';
+    const now = Date.now();
+    const etaMs = now + remainingSec * 1000;
+    const roundedEta = new Date(Math.round(etaMs / 60000) * 60000);
+    return roundedEta.toLocaleTimeString('en-IN', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  }
+
+  it('calculates cardinal bearings accurately', () => {
+    // Due North
+    const north = calculateBearing({ lat: 16.5160, lng: 80.6225 }, { lat: 16.5260, lng: 80.6225 });
+    expect(north).toBeCloseTo(0, 0);
+
+    // Due East
+    const east = calculateBearing({ lat: 16.5160, lng: 80.6225 }, { lat: 16.5160, lng: 80.6325 });
+    expect(east).toBeCloseTo(90, 0);
+
+    // Due South
+    const south = calculateBearing({ lat: 16.5260, lng: 80.6225 }, { lat: 16.5160, lng: 80.6225 });
+    expect(south).toBeCloseTo(180, 0);
+
+    // Due West
+    const west = calculateBearing({ lat: 16.5160, lng: 80.6325 }, { lat: 16.5160, lng: 80.6225 });
+    expect(west).toBeCloseTo(270, 0);
+  });
+
+  it('smoothly interpolates angles across 360/0 degree boundary', () => {
+    // Current is 355 deg, target is 5 deg (shortest clockwise path is +10 deg, not -350 deg)
+    const next = smoothAngle(355, 5, 0.5);
+    expect(next).toBeCloseTo(360 % 360, 0); // halfway is 0/360
+  });
+
+  it('ignores micro-jitter below 1 degree deadband', () => {
+    const current = 120.0;
+    const jittered = 120.4;
+    expect(smoothAngle(current, jittered, 0.25)).toBe(current);
+  });
+
+  it('formats ETA clock to standard 12-hour time string', () => {
+    const etaStr = computeEtaClock(480); // 8 minutes ahead
+    expect(etaStr).toMatch(/^(0?[1-9]|1[0-2]):[0-5][0-9]\s?(AM|PM|am|pm)$/);
+  });
+});
+
+

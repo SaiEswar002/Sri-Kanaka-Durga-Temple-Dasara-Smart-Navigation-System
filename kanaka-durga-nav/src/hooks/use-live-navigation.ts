@@ -4,23 +4,18 @@
  * useLiveNavigation
  * Powers the live navigation HUD:
  *  - GPS watch for continuous position updates
- *  - Real-time speed (km/h) and heading (degrees) from GeolocationCoordinates
+ *  - Compass deviceorientation listener (iOS webkitCompassHeading, Android alpha)
+ *  - Real-time speed (km/h) and movement bearing calculation when moving
+ *  - Initial route segment bearing fallback when stationary
+ *  - Circular heading smoothing to eliminate magnetometer jitter
+ *  - Continuously updated dynamic ETA clock (e.g. "12:42 PM") and remaining travel time
+ *  - Live step distance countdown as pilgrim approaches maneuvers
  *  - Elapsed time since navigation started
- *  - Remaining distance and time to destination (along the route polyline)
+ *  - Remaining distance and time to destination along the route polyline (segment projection)
  *  - Auto-advance route steps when user passes a step waypoint radius
  *  - Arrival detection
  *  - Off-route detection with hysteresis (requires N consecutive off-route samples)
  *  - Rerouting trigger callback when off-route confirmed
- *
- * Off-route detection design:
- *  - Compute the perpendicular distance from the user's GPS position to the
- *    nearest route polyline segment (not nearest vertex — much more accurate).
- *  - Threshold: 40m from the nearest segment (safe for dense pilgrimage areas
- *    with GPS noise of ±10–20m on consumer devices).
- *  - Hysteresis: requires OFF_ROUTE_CONFIRM_SAMPLES consecutive off-route
- *    readings before confirming off-route. This prevents triggering on GPS
- *    noise, multipath, or momentary position jumps.
- *  - Re-route cooldown: prevents repeated rerouting within 10 seconds.
  *
  * React 19 / react-hooks/set-state-in-effect compliance maintained throughout.
  */
@@ -49,14 +44,18 @@ export interface LiveNavigationState {
   accuracy: number | null;
   /** Speed in km/h (from GeolocationCoordinates.speed, else computed from positions) */
   speedKmh: number;
-  /** Compass heading in degrees (0 = North) */
+  /** Compass / movement heading in degrees (0 = North, 90 = East) */
   heading: number | null;
   /** Seconds since navigation started */
   elapsedSeconds: number;
   /** Remaining meters to destination along the route polyline */
   remainingMeters: number;
-  /** Remaining seconds to destination (estimated at current speed or route average) */
+  /** Remaining seconds to destination */
   remainingSeconds: number;
+  /** Formatted dynamic ETA clock string, e.g. "12:42 PM" */
+  etaClock: string;
+  /** Dynamic remaining distance in meters to the upcoming maneuver waypoint */
+  stepDistanceMeters: number;
   /** Current step index */
   currentStepIdx: number;
   /** Whether user has arrived at the destination */
@@ -87,6 +86,41 @@ interface UseLiveNavigationOptions {
 }
 
 // ── Geometry helpers ─────────────────────────────────────────────────────────
+
+/** Calculate true forward bearing between two coordinates in degrees [0, 360) */
+export function calculateBearing(start: LngLat, end: LngLat): number {
+  const startLat = (start.lat * Math.PI) / 180;
+  const startLng = (start.lng * Math.PI) / 180;
+  const endLat = (end.lat * Math.PI) / 180;
+  const endLng = (end.lng * Math.PI) / 180;
+  const dLng = endLng - startLng;
+  const y = Math.sin(dLng) * Math.cos(endLat);
+  const x =
+    Math.cos(startLat) * Math.sin(endLat) -
+    Math.sin(startLat) * Math.cos(endLat) * Math.cos(dLng);
+  const brng = (Math.atan2(y, x) * 180) / Math.PI;
+  return (brng + 360) % 360;
+}
+
+/** Circular angle smoother taking 360 wrap-around into account with deadband */
+export function smoothAngle(current: number, target: number, factor = 0.25): number {
+  const diff = ((target - current + 540) % 360) - 180;
+  if (Math.abs(diff) < 1.0) return current;
+  return (current + diff * factor + 360) % 360;
+}
+
+/** Format remaining seconds to dynamic ETA clock string (e.g. "12:42 PM") */
+export function computeEtaClock(remainingSec: number): string {
+  if (remainingSec <= 0) return '--:--';
+  const now = Date.now();
+  const etaMs = now + remainingSec * 1000;
+  const roundedEta = new Date(Math.round(etaMs / 60000) * 60000);
+  return roundedEta.toLocaleTimeString('en-IN', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
 
 /**
  * Compute the perpendicular distance from point P to line segment AB.
@@ -205,6 +239,8 @@ export function useLiveNavigation({
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [remainingMeters, setRemainingMeters] = useState(() => route?.distance_meters ?? 0);
   const [remainingSeconds, setRemainingSeconds] = useState(() => route?.duration_seconds ?? 0);
+  const [etaClock, setEtaClock] = useState(() => computeEtaClock(route?.duration_seconds ?? 0));
+  const [stepDistanceMeters, setStepDistanceMeters] = useState(() => route?.steps[0]?.distance_meters ?? 0);
   const [arrived, setArrived] = useState(false);
   const [gpsStatus, setGpsStatus] = useState<LiveNavigationState['gpsStatus']>('waiting');
   const [gpsError, setGpsError] = useState<string | null>(null);
@@ -218,17 +254,19 @@ export function useLiveNavigation({
   const arrivedRef = useRef(false);
   const stepIdxRef = useRef(externalStepIdx ?? 0);
 
+  // Orientation / Heading refs
+  const compassHeadingRef = useRef<number | null>(null);
+  const movementBearingRef = useRef<number | null>(null);
+  const currentSmoothedHeadingRef = useRef<number | null>(null);
+
   // Progressive tracking & stabilization refs (prevents UI flicker on GPS jitter)
   const lastSegmentIdxRef = useRef(0);
   const lastReportedMetersRef = useRef<number | null>(null);
   const lastReportedSecondsRef = useRef<number | null>(null);
 
   // Off-route tracking refs (not state — avoid extra renders on every GPS tick)
-  /** Running count of consecutive off-route GPS readings */
   const offRouteSamplesRef = useRef(0);
-  /** Whether off-route has been confirmed (to avoid repeated callbacks) */
   const offRouteConfirmedRef = useRef(false);
-  /** Timestamp of last reroute trigger (for cooldown) */
   const lastRerouteTsRef = useRef(0);
 
   const [currentStepIdx, setCurrentStepIdx] = useState(externalStepIdx ?? 0);
@@ -249,9 +287,25 @@ export function useLiveNavigation({
       lastSegmentIdxRef.current = 0;
       lastReportedMetersRef.current = dm;
       lastReportedSecondsRef.current = ds;
+      const initialStepDist = route.steps[0]?.distance_meters ?? 0;
+
+      // Compute initial route bearing if available as stationary fallback
+      if (route.coordinates.length >= 2) {
+        const p1: LngLat = { lat: route.coordinates[0][1], lng: route.coordinates[0][0] };
+        const p2: LngLat = { lat: route.coordinates[1][1], lng: route.coordinates[1][0] };
+        const initBearing = calculateBearing(p1, p2);
+        movementBearingRef.current = initBearing;
+        if (currentSmoothedHeadingRef.current === null) {
+          currentSmoothedHeadingRef.current = initBearing;
+          Promise.resolve().then(() => setHeading(Math.round(initBearing)));
+        }
+      }
+
       Promise.resolve().then(() => {
         setRemainingMeters(dm);
         setRemainingSeconds(ds);
+        setEtaClock(computeEtaClock(ds));
+        setStepDistanceMeters(initialStepDist);
         setIsOffRoute(false);
         setDistanceFromRoute(null);
       });
@@ -260,6 +314,47 @@ export function useLiveNavigation({
       offRouteConfirmedRef.current = false;
     }
   }, [route]);
+
+  // Compass / Device Orientation Listener
+  useEffect(() => {
+    if (!active || typeof window === 'undefined') return;
+
+    const handleOrientation = (e: DeviceOrientationEvent) => {
+      let compass: number | null = null;
+      // iOS Safari (webkitCompassHeading: 0 = North, clockwise)
+      if (
+        'webkitCompassHeading' in e &&
+        typeof (e as unknown as { webkitCompassHeading: number }).webkitCompassHeading === 'number'
+      ) {
+        compass = (e as unknown as { webkitCompassHeading: number }).webkitCompassHeading;
+      } else if (e.alpha !== null && e.alpha !== undefined && !isNaN(e.alpha)) {
+        // Android / Chrome (alpha: 0 = North, counter-clockwise)
+        compass = (360 - e.alpha) % 360;
+      }
+
+      if (compass !== null && !isNaN(compass) && compass >= 0 && compass <= 360) {
+        compassHeadingRef.current = compass;
+
+        // Smooth heading update
+        const prev = currentSmoothedHeadingRef.current ?? compass;
+        const smoothed = smoothAngle(prev, compass, 0.2);
+        currentSmoothedHeadingRef.current = smoothed;
+        setHeading(Math.round(smoothed));
+      }
+    };
+
+    const win = window as unknown as Window & { ondeviceorientationabsolute?: unknown };
+    if ('ondeviceorientationabsolute' in win) {
+      window.addEventListener('deviceorientationabsolute', handleOrientation as EventListener, true);
+    } else {
+      window.addEventListener('deviceorientation', handleOrientation as EventListener, true);
+    }
+
+    return () => {
+      window.removeEventListener('deviceorientationabsolute', handleOrientation as EventListener, true);
+      window.removeEventListener('deviceorientation', handleOrientation as EventListener, true);
+    };
+  }, [active]);
 
   const handleGpsUpdate = useCallback(
     (pos: GeolocationPosition) => {
@@ -272,7 +367,7 @@ export function useLiveNavigation({
       setGpsStatus('active');
       setGpsError(null);
 
-      // --- Speed ---
+      // --- Speed & Movement Bearing ---
       let computedSpeed = 0;
       if (speed !== null && speed >= 0) {
         computedSpeed = speed * 3.6;
@@ -283,14 +378,32 @@ export function useLiveNavigation({
         if (dSec > 0.5 && dMeters > 0.5) {
           computedSpeed = (dMeters / dSec) * 3.6;
         }
+
+        // If moved >= 2.0 meters, compute forward GPS bearing
+        if (dMeters >= 2.0) {
+          const moveBearing = calculateBearing(prev, loc);
+          movementBearingRef.current = moveBearing;
+        }
       }
       // Deadband: speeds below 1.5 km/h are considered stationary (GPS drift)
       const displaySpeed = computedSpeed < 1.5 ? 0 : Math.min(computedSpeed, 120);
       setSpeedKmh(Math.round(displaySpeed * 10) / 10);
 
-      // --- Heading ---
-      if (hdg !== null && hdg >= 0) {
-        setHeading(hdg);
+      // --- Heading Selection (Compass > GPS Coords > Movement Bearing) ---
+      let rawHeading: number | null = null;
+      if (compassHeadingRef.current !== null) {
+        rawHeading = compassHeadingRef.current;
+      } else if (hdg !== null && !isNaN(hdg) && hdg >= 0) {
+        rawHeading = hdg;
+      } else if (movementBearingRef.current !== null) {
+        rawHeading = movementBearingRef.current;
+      }
+
+      if (rawHeading !== null) {
+        const prev = currentSmoothedHeadingRef.current ?? rawHeading;
+        const smoothed = smoothAngle(prev, rawHeading, 0.25);
+        currentSmoothedHeadingRef.current = smoothed;
+        setHeading(Math.round(smoothed));
       }
 
       prevPositionRef.current = { lat: latitude, lng: longitude, ts: now };
@@ -298,7 +411,6 @@ export function useLiveNavigation({
       if (!route || arrivedRef.current) return;
 
       // --- Off-route detection ───────────────────────────────────────────────
-      // Only run off-route detection when we have a route with ≥2 coordinates.
       if (route.coordinates.length >= 2) {
         const routeDist = distanceFromRouteLine(route.coordinates, loc);
         setDistanceFromRoute(routeDist);
@@ -342,10 +454,10 @@ export function useLiveNavigation({
       );
       lastSegmentIdxRef.current = closestSegmentIdx;
 
-      // Hysteresis deadband: do not fluctuate distance for small GPS noise (< 15 meters)
+      // Hysteresis deadband: do not fluctuate distance for small GPS noise (< 10 meters)
       const lastDist = lastReportedMetersRef.current;
       let stableDist = distRemaining;
-      if (lastDist !== null && Math.abs(distRemaining - lastDist) < 15) {
+      if (lastDist !== null && Math.abs(distRemaining - lastDist) < 10) {
         stableDist = lastDist;
       } else {
         lastReportedMetersRef.current = distRemaining;
@@ -363,31 +475,42 @@ export function useLiveNavigation({
         setArrived(true);
         setRemainingMeters(0);
         setRemainingSeconds(0);
+        setStepDistanceMeters(0);
+        setEtaClock('Arrived');
         lastReportedMetersRef.current = 0;
         lastReportedSecondsRef.current = 0;
         onArrival?.();
         return;
       }
 
-      // --- Stable Remaining Time Estimation ---
-      // Scaled proportionally along the route based on road model duration.
-      // (Never divides full route by instantaneous jitter speed which causes wild jumps!)
+      // --- Stable Remaining Time & ETA Clock ---
       const totalRouteDist = route.distance_meters > 0 ? route.distance_meters : 1;
       const totalRouteSec = route.duration_seconds > 0 ? route.duration_seconds : 1;
       const progressFraction = Math.max(0, Math.min(1, stableDist / totalRouteDist));
       const targetSec = Math.round(totalRouteSec * progressFraction);
 
-      // Only update remainingSeconds if it drifts by > 15s from route target
-      // (prevents jitter while keeping it synced with long-term driving progress)
       const currentSec = lastReportedSecondsRef.current;
-      if (currentSec === null || Math.abs(currentSec - targetSec) > 15) {
+      if (currentSec === null || Math.abs(currentSec - targetSec) > 10) {
         lastReportedSecondsRef.current = targetSec;
         setRemainingSeconds(targetSec);
+        setEtaClock(computeEtaClock(targetSec));
       }
 
-      // --- Auto-advance route steps ---
+      // --- Auto-advance route steps & Countdown Distance to Next Maneuver ---
       const steps = route.steps;
-      const nextStepIdx = stepIdxRef.current + 1;
+      const currentIdx = stepIdxRef.current;
+      const nextStepIdx = currentIdx + 1;
+
+      // Compute live remaining distance to the upcoming waypoint
+      const targetWaypoint = steps[nextStepIdx]?.coordinate ?? steps[currentIdx]?.coordinate;
+      if (targetWaypoint) {
+        const dStep = Math.max(
+          0,
+          Math.round(haversineDistance(loc, { lat: targetWaypoint[1], lng: targetWaypoint[0] }))
+        );
+        setStepDistanceMeters(dStep);
+      }
+
       if (nextStepIdx < steps.length) {
         const nextStep = steps[nextStepIdx];
         const stepLoc: LngLat = { lat: nextStep.coordinate[1], lng: nextStep.coordinate[0] };
@@ -425,6 +548,9 @@ export function useLiveNavigation({
       lastSegmentIdxRef.current = 0;
       lastReportedMetersRef.current = null;
       lastReportedSecondsRef.current = null;
+      compassHeadingRef.current = null;
+      movementBearingRef.current = null;
+      currentSmoothedHeadingRef.current = null;
       offRouteSamplesRef.current = 0;
       offRouteConfirmedRef.current = false;
       lastRerouteTsRef.current = 0;
@@ -432,6 +558,7 @@ export function useLiveNavigation({
       Promise.resolve().then(() => {
         setElapsedSeconds(0);
         setSpeedKmh(0);
+        setHeading(null);
         setArrived(false);
         setCurrentStepIdx(0);
         setGpsStatus('waiting');
@@ -466,6 +593,7 @@ export function useLiveNavigation({
         if (prev <= 1 || arrivedRef.current) return prev;
         const next = prev - 1;
         lastReportedSecondsRef.current = next;
+        setEtaClock(computeEtaClock(next));
         return next;
       });
     }, 1000);
@@ -490,6 +618,8 @@ export function useLiveNavigation({
     elapsedSeconds,
     remainingMeters,
     remainingSeconds,
+    etaClock,
+    stepDistanceMeters,
     currentStepIdx,
     arrived,
     gpsStatus,
@@ -498,7 +628,8 @@ export function useLiveNavigation({
     distanceFromRoute,
   }), [
     currentLocation, accuracy, speedKmh, heading, elapsedSeconds,
-    remainingMeters, remainingSeconds, currentStepIdx, arrived, gpsStatus, gpsError,
+    remainingMeters, remainingSeconds, etaClock, stepDistanceMeters,
+    currentStepIdx, arrived, gpsStatus, gpsError,
     isOffRoute, distanceFromRoute,
   ]);
 }

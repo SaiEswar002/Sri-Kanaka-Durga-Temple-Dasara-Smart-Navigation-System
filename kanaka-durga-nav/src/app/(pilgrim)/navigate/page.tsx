@@ -4,10 +4,10 @@ import { useState, useCallback, useMemo, Suspense, useEffect, useRef } from 'rea
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
 import {
-  Navigation, MapPin, MapPinOff, ChevronRight, X,
+  MapPin, MapPinOff, ChevronRight, X,
   ArrowLeft, CheckCircle2, Signal, SignalHigh, SignalLow, Crosshair,
   ArrowUp, ArrowUpLeft, ArrowUpRight, CornerUpLeft, CornerUpRight,
-  RotateCcw, Volume2, AlertTriangle, WifiOff, RefreshCw, Route,
+  RotateCcw, AlertTriangle, WifiOff, RefreshCw, Route,
   Search
 } from 'lucide-react';
 import { useLocation as useLocationData, useLocations } from '@/hooks/use-data';
@@ -42,15 +42,6 @@ function formatElapsed(secs: number): string {
   if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m`;
   if (m > 0) return `${m} min`;
   return `${s}s`;
-}
-
-function getETA(remainingSeconds: number): string {
-  if (remainingSeconds <= 0) return '--:--';
-  const now = Date.now();
-  const etaMs = now + remainingSeconds * 1000;
-  // Round to nearest minute (30s threshold) to prevent single-second minute flips
-  const roundedEta = new Date(Math.round(etaMs / 60000) * 60000);
-  return roundedEta.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 
 /** Return the SVG arrow component for a maneuver type */
@@ -94,55 +85,59 @@ function GpsSignalIcon({ accuracy }: { accuracy: number | null }) {
 }
 
 // ─────────────────────────────────────────────────
-// Google Maps-style top instruction card
+// Google Maps-style top instruction card (NO speaker logo)
 // ─────────────────────────────────────────────────
 interface NavTopCardProps {
   currentStep: { instruction: string; instruction_te: string; maneuver: string; distance_meters: number } | undefined;
   nextStep: { instruction: string; maneuver: string } | undefined;
+  stepDistanceMeters?: number;
   locale: string;
   accuracy: number | null;
   gpsStatus: string;
   speedKmh: number;
 }
 
-function NavTopCard({ currentStep, nextStep, locale, accuracy, gpsStatus, speedKmh }: NavTopCardProps) {
+function NavTopCard({
+  currentStep,
+  nextStep,
+  stepDistanceMeters,
+  locale,
+  accuracy,
+  gpsStatus,
+  speedKmh,
+}: NavTopCardProps) {
   if (!currentStep) return null;
   const maneuverType = getManeuverType(currentStep.maneuver, currentStep.instruction);
   const nextManeuverType = nextStep ? getManeuverType(nextStep.maneuver, nextStep.instruction) : null;
+  const displayDist = stepDistanceMeters !== undefined && stepDistanceMeters > 0
+    ? stepDistanceMeters
+    : currentStep.distance_meters;
 
   return (
     <div className="absolute top-0 left-0 right-0 pointer-events-none" style={{ zIndex: 1100 }}>
-      {/* Main instruction card — temple crimson theme */}
+      {/* Main instruction card — temple crimson theme (NO speaker button) */}
       <div
         className="mx-0 rounded-none shadow-2xl px-5 pt-4 pb-3"
-        style={{ background: 'linear-gradient(135deg, #5c0f1d 0%, #7a1425 50%, #9b1b30 100%)' }}
+        style={{ background: 'linear-gradient(135deg, #5c0f1d 0%, #7a1425 50%, #8b142d 100%)' }}
       >
         <div className="flex items-center gap-4">
-          {/* Arrow icon in gold ring */}
+          {/* Maneuver arrow icon in gold ring */}
           <div
             className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
-            style={{ background: 'rgba(255,255,255,0.12)', border: '1.5px solid rgba(255,215,100,0.3)' }}
+            style={{ background: 'rgba(255,255,255,0.12)', border: '1.5px solid rgba(245,158,11,0.5)' }}
           >
             <ManeuverArrow maneuver={maneuverType} size={32} />
           </div>
 
-          {/* Street name */}
+          {/* Street / instruction name & live dynamic distance countdown */}
           <div className="flex-1 min-w-0">
             <p className="text-white font-black text-xl leading-tight">
               {locale === 'te' ? currentStep.instruction_te : currentStep.instruction}
             </p>
-            <p className="text-amber-300 text-sm font-semibold mt-0.5">
-              in {formatDistance(currentStep.distance_meters)}
+            <p className="text-amber-300 text-sm font-semibold mt-0.5 tracking-wide">
+              {displayDist <= 15 ? 'Turn now' : `in ${formatDistance(displayDist)}`}
             </p>
           </div>
-
-          {/* Voice button */}
-          <button
-            className="w-10 h-10 rounded-full flex items-center justify-center pointer-events-auto"
-            style={{ background: 'rgba(255,255,255,0.12)' }}
-          >
-            <Volume2 size={18} className="text-white" />
-          </button>
         </div>
 
         {/* "Then" preview */}
@@ -164,16 +159,16 @@ function NavTopCard({ currentStep, nextStep, locale, accuracy, gpsStatus, speedK
       <div className="flex items-center gap-2 px-3 mt-2">
         <div
           className="flex items-center gap-1.5 rounded-full px-2.5 py-1 pointer-events-none"
-          style={{ background: 'rgba(90,10,20,0.85)', backdropFilter: 'blur(8px)', border: '1px solid rgba(155,27,48,0.4)' }}
+          style={{ background: 'rgba(90,10,20,0.85)', backdropFilter: 'blur(8px)', border: '1px solid rgba(139,20,45,0.4)' }}
         >
           <GpsSignalIcon accuracy={accuracy} />
           <span className="text-[10px] text-red-200 font-medium">
             {gpsStatus === 'active' && accuracy !== null ? `±${Math.round(accuracy)}m` :
-             gpsStatus === 'waiting' ? 'Acquiring…' : 'GPS off'}
+             gpsStatus === 'waiting' ? 'Acquiring GPS…' : 'GPS off'}
           </span>
           {speedKmh > 0.5 && (
             <>
-              <span className="text-red-800 mx-0.5">·</span>
+              <span className="text-red-700 mx-0.5">·</span>
               <span className="text-[10px] text-amber-300 font-bold">{speedKmh.toFixed(1)} km/h</span>
             </>
           )}
@@ -184,9 +179,10 @@ function NavTopCard({ currentStep, nextStep, locale, accuracy, gpsStatus, speedK
 }
 
 // ─────────────────────────────────────────────────
-// Google Maps-style bottom nav bar
+// Google Maps-style bottom nav bar (Continuous Exact Time ETA)
 // ─────────────────────────────────────────────────
 interface NavBottomBarProps {
+  etaClock: string;
   remainingSeconds: number;
   remainingMeters: number;
   elapsedSeconds: number;
@@ -197,27 +193,65 @@ interface NavBottomBarProps {
   isOffRoute: boolean;
   isRerouting: boolean;
   isAutoFollowing?: boolean;
+  mapRotationMode: 'heads-up' | 'north-up';
+  onToggleMapRotation: () => void;
+  heading: number | null;
 }
 
 function NavBottomBar({
-  remainingSeconds, remainingMeters, elapsedSeconds,
-  onStop, onRecentre, onNextStep, hasNextStep,
-  isOffRoute, isRerouting, isAutoFollowing = true
+  etaClock,
+  remainingSeconds,
+  remainingMeters,
+  onStop,
+  onRecentre,
+  onNextStep,
+  hasNextStep,
+  isOffRoute,
+  isRerouting,
+  isAutoFollowing = true,
+  mapRotationMode,
+  onToggleMapRotation,
+  heading,
 }: NavBottomBarProps) {
+  const compassNeedleAngle = mapRotationMode === 'heads-up' && heading !== null ? -heading : 0;
+
   return (
     <div className="absolute bottom-0 left-0 right-0" style={{ zIndex: 1100 }}>
-      {/* Re-centre — crimson themed */}
-      <div className="flex justify-start px-4 mb-2 pointer-events-none">
+      {/* Floating Controls: Re-centre & Compass Orientation Toggle */}
+      <div className="flex justify-between items-center px-4 mb-2 pointer-events-none">
         <button
           onClick={onRecentre}
           className={`pointer-events-auto flex items-center gap-2 text-white rounded-full px-4 py-2.5 shadow-xl text-sm font-semibold active:scale-95 transition-all ${
-            !isAutoFollowing ? 'ring-2 ring-amber-400 bg-[#8c182b] scale-105 shadow-amber-500/30' : 'bg-[#7a1425]'
+            !isAutoFollowing
+              ? 'ring-2 ring-amber-400 bg-[#8b142d] scale-105 shadow-amber-500/30'
+              : 'bg-[#7a1425] opacity-90'
           }`}
-          style={{ border: '1.5px solid rgba(255,215,100,0.3)', boxShadow: '0 4px 16px rgba(90,10,20,0.5)' }}
+          style={{ border: '1.5px solid rgba(245,158,11,0.4)', boxShadow: '0 4px 16px rgba(90,10,20,0.5)' }}
           title="Re-centre to your location"
         >
-          <Crosshair size={16} className={`text-amber-300 ${!isAutoFollowing ? 'animate-pulse' : ''}`} />
-          Re-centre
+          <Crosshair size={16} className={`text-amber-300 ${!isAutoFollowing ? 'animate-spin' : ''}`} />
+          <span>Re-centre</span>
+        </button>
+
+        {/* Compass Needle / Orientation Toggle */}
+        <button
+          onClick={onToggleMapRotation}
+          className="pointer-events-auto w-11 h-11 rounded-full flex items-center justify-center bg-[#7a1425] text-white shadow-xl active:scale-95 transition-all"
+          style={{ border: '1.5px solid rgba(245,158,11,0.4)', boxShadow: '0 4px 16px rgba(90,10,20,0.5)' }}
+          title={mapRotationMode === 'heads-up' ? 'Heads-Up (tap for North-Up)' : 'North-Up (tap for Heads-Up)'}
+        >
+          <div
+            className="w-6 h-6 flex items-center justify-center transition-transform duration-300 ease-out"
+            style={{ transform: `rotate(${compassNeedleAngle}deg)` }}
+          >
+            <svg viewBox="0 0 24 24" width="22" height="22">
+              <polygon points="12,2 16,12 12,9" fill="#ef4444" stroke="#ffffff" strokeWidth="0.8" />
+              <polygon points="12,22 16,12 12,15" fill="#f59e0b" stroke="#ffffff" strokeWidth="0.8" />
+              <polygon points="12,2 8,12 12,9" fill="#b91c1c" stroke="#ffffff" strokeWidth="0.8" />
+              <polygon points="12,22 8,12 12,15" fill="#d97706" stroke="#ffffff" strokeWidth="0.8" />
+              <circle cx="12" cy="12" r="2.5" fill="#ffffff" />
+            </svg>
+          </div>
         </button>
       </div>
 
@@ -230,56 +264,58 @@ function NavBottomBar({
           aria-live="polite"
         >
           {isRerouting ? (
-            <><RefreshCw size={16} className="text-white animate-spin" aria-hidden />
-            <span className="text-white">Recalculating route…</span></>
+            <>
+              <RefreshCw size={16} className="text-white animate-spin" aria-hidden />
+              <span className="text-white">Recalculating route…</span>
+            </>
           ) : (
-            <><Route size={16} className="text-amber-200" aria-hidden />
-            <span className="text-amber-100">Off route — recalculating…</span></>
+            <>
+              <Route size={16} className="text-amber-200" aria-hidden />
+              <span className="text-amber-100">Off route — recalculating…</span>
+            </>
           )}
         </div>
       )}
 
-      {/* Bottom sheet — dark with crimson accent */}
+      {/* Bottom sheet — temple dark theme with exact ETA and distance (NO emojis) */}
       <div
-        className="px-4 pt-4 pb-6"
+        className="px-5 pt-4 pb-6"
         style={{
           background: 'linear-gradient(180deg, #1a0509 0%, #0d0203 100%)',
-          borderTop: '1px solid rgba(155,27,48,0.4)',
-          boxShadow: '0 -8px 32px rgba(0,0,0,0.7)'
+          borderTop: '1px solid rgba(139,20,45,0.4)',
+          boxShadow: '0 -8px 32px rgba(0,0,0,0.7)',
         }}
       >
-        <div className="flex items-center gap-3">
-          {/* Stop — crimson X */}
+        <div className="flex items-center gap-4">
+          {/* Stop — crimson circular button */}
           <button
             onClick={onStop}
-            className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 active:scale-95 transition-all"
-            style={{ background: 'rgba(155,27,48,0.25)', border: '1.5px solid rgba(155,27,48,0.5)' }}
+            className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 active:scale-95 transition-all bg-red-950/60 border border-red-800/60 hover:bg-red-900/80"
             aria-label="Stop navigation"
           >
-            <X size={20} className="text-red-300" />
+            <X size={20} className="text-red-200" />
           </button>
 
-          {/* Stats */}
-          <div className="flex-1">
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-white font-black text-2xl leading-none">
-                {formatDuration(remainingSeconds)}
+          {/* Continuous Dynamic ETA and Distance Display */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-baseline gap-2">
+              <span className="text-white font-extrabold text-2xl leading-none tracking-tight">
+                Arrive {etaClock}
               </span>
-              <span className="text-amber-400 text-sm">🛕</span>
+              <span className="text-amber-300 font-bold text-base leading-none">
+                · {formatDuration(remainingSeconds)}
+              </span>
             </div>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-red-300 text-sm font-medium">{formatDistance(remainingMeters)}</span>
-              <span className="text-red-800">·</span>
-              <span className="text-red-300 text-sm">{getETA(remainingSeconds)}</span>
+            <div className="text-red-200/90 text-sm font-medium mt-1 tracking-wide">
+              {formatDistance(remainingMeters)} remaining
             </div>
           </div>
 
-          {/* Next step */}
+          {/* Next step button (if steps available) */}
           {hasNextStep && (
             <button
               onClick={onNextStep}
-              className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 active:scale-95 transition-all"
-              style={{ background: 'rgba(155,27,48,0.3)', border: '1.5px solid rgba(155,27,48,0.5)' }}
+              className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 active:scale-95 transition-all bg-amber-950/50 border border-amber-600/50 hover:bg-amber-900/60"
               title="Next step"
               aria-label="Advance to next navigation step"
             >
@@ -316,26 +352,30 @@ function GpsAcquiringOverlay({ onSkip }: { onSkip: () => void }) {
 }
 
 // ─────────────────────────────────────────────────
-// Arrival overlay
+// Arrival overlay (Clean dignified temple style, NO emojis)
 // ─────────────────────────────────────────────────
 function ArrivalOverlay({ destName, elapsedSeconds, totalMeters, onDismiss }: {
   destName: string; elapsedSeconds: number; totalMeters: number; onDismiss: () => void;
 }) {
   return (
-    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-3xl p-7 max-w-xs text-center shadow-2xl border border-black/5 w-full">
-        <div className="w-20 h-20 rounded-full bg-emerald-50 border-2 border-emerald-200 flex items-center justify-center mx-auto mb-4 animate-bounce">
-          <CheckCircle2 size={42} className="text-emerald-500" strokeWidth={1.5} />
+    <div className="absolute inset-0 bg-black/65 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-3xl p-7 max-w-xs text-center shadow-2xl border border-black/10 w-full animate-in fade-in zoom-in-95 duration-200">
+        <div className="w-18 h-18 rounded-full bg-emerald-50 border-2 border-emerald-300 flex items-center justify-center mx-auto mb-4">
+          <CheckCircle2 size={44} className="text-emerald-600" strokeWidth={1.8} />
         </div>
-        <h3 className="font-black text-2xl text-gray-900 mb-1">You Arrived! 🎉</h3>
-        <p className="text-sm text-gray-600 mb-1 font-semibold">{destName}</p>
-        <p className="text-[13px] text-gray-500 mb-5">
-          జై కనక దుర్గా! ✨<br />
-          <span className="font-medium text-gray-700">
+        <h3 className="font-black text-2xl text-gray-900 mb-1">You Have Arrived</h3>
+        <p className="text-sm text-gray-700 mb-1 font-bold">{destName}</p>
+        <p className="text-[13px] text-gray-500 mb-5 leading-relaxed">
+          <span className="text-[#8b142d] font-semibold">జై కనక దుర్గా!</span>
+          <br />
+          <span className="font-medium text-gray-700 mt-1 inline-block">
             {formatDistance(totalMeters)} in {formatElapsed(elapsedSeconds)}
           </span>
         </p>
-        <button className="btn btn-primary w-full font-bold text-sm py-3" onClick={onDismiss}>
+        <button
+          className="btn btn-primary w-full font-bold text-sm py-3 rounded-xl shadow-lg"
+          onClick={onDismiss}
+        >
           Done / ముగించు
         </button>
       </div>
@@ -360,13 +400,12 @@ interface PreNavSidebarProps {
   onRequestLocation: () => void;
   onSelectDest: (id: string) => void;
   t: (key: string) => string;
-  tLoc: (key: string) => string;
 }
 
 function PreNavSidebar({
   destination, allLocations, locale, acquiringGps, preAcquiredLocation,
   gpsSkipped, routeLoading, routeError, destLngLat,
-  onStart, onRequestLocation, onSelectDest, t, tLoc
+  onStart, onRequestLocation, onSelectDest, t
 }: PreNavSidebarProps) {
   const [search, setSearch] = useState('');
   const [selectedSector, setSelectedSector] = useState<string>('all');
@@ -399,102 +438,91 @@ function PreNavSidebar({
   }, [allLocations, selectedSector, search]);
 
   return (
-    <div className="order-2 md:order-1 md:w-105 lg:w-115 shrink-0 bg-white border-t md:border-t-0 md:border-r border-border shadow-xl md:shadow-none z-20 flex flex-col max-h-[45dvh] md:max-h-full overflow-y-auto">
+    <div className="w-full md:w-105 shrink-0 bg-white border-r border-border flex flex-col h-full overflow-y-auto">
       <div className="p-4 sm:p-5 flex-1 flex flex-col gap-4">
+        {/* Selected Destination Card */}
         {destination ? (
-          <>
-            <div className="flex items-start justify-between gap-3 pb-3 border-b border-border">
-              <div className="flex-1 min-w-0">
-                <span className="text-[11px] font-bold text-primary uppercase tracking-wider block">
-                  {locale === 'te' ? 'గమ్యస్థానం' : 'Destination'}
+          <div className="border border-primary/20 bg-primary-subtle/30 rounded-2xl p-4 flex flex-col gap-3">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-primary">
+                  {locale === 'te' ? 'ఎంచుకున్న గమ్యస్థానం' : 'Selected Destination'}
                 </span>
-                <h2 className="font-black text-lg sm:text-xl text-gray-900 leading-snug mt-0.5">
+                <h2 className="text-lg font-bold text-gray-900 leading-snug">
                   {locale === 'te' ? destination.name_te : destination.name}
                 </h2>
                 {destination.address && (
-                  <p className="text-xs text-text-muted mt-1 flex items-center gap-1">
-                    <MapPin size={12} className="shrink-0" />
-                    <span className="truncate">{destination.address}</span>
-                  </p>
-                )}
-                {/* Sector & Sub-Sector badges */}
-                {(destination.sector || destination.sub_sector) && (
-                  <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                    {(destination.sector as { name?: string } | null)?.name && (
-                      <span className="text-[11px] font-semibold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-md border border-amber-200">
-                        📍 {(destination.sector as { name: string }).name}
-                      </span>
-                    )}
-                    {(destination.sub_sector as { name?: string } | null)?.name && (
-                      <span className="text-[11px] font-medium bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md border border-gray-200">
-                        ↳ {(destination.sub_sector as { name: string }).name}
-                      </span>
-                    )}
-                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5">{destination.address}</p>
                 )}
               </div>
               <button
                 onClick={() => onSelectDest('')}
-                className="text-xs font-semibold text-primary hover:text-primary-dark underline flex items-center gap-1 shrink-0 pt-1 cursor-pointer"
-                type="button"
-                title="Select a different destination"
+                className="w-7 h-7 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 hover:text-gray-600 shrink-0"
+                title="Change destination"
               >
-                <RotateCcw size={12} />
-                <span>{locale === 'te' ? 'మార్చండి' : 'Change'}</span>
+                <X size={14} />
               </button>
             </div>
 
-            {/* GPS status */}
-            <div className="flex items-center gap-2 text-xs">
-              {acquiringGps ? (
-                <><span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
-                  <span className="text-amber-600 font-medium">Acquiring GPS location…</span></>
+            {/* GPS Status Indicator */}
+            <div className="flex items-center gap-2 text-xs pt-1 border-t border-primary/10">
+              {acquiringGps && !gpsSkipped ? (
+                <div className="flex items-center gap-1.5 text-blue-600 font-medium">
+                  <div className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
+                  <span>{locale === 'te' ? 'జీపీఎస్ పొందుతున్నారు...' : 'Acquiring GPS location...'}</span>
+                </div>
               ) : preAcquiredLocation ? (
-                <><span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                  <span className="text-emerald-700 font-medium">📍 Your location found — route starts from here</span></>
-              ) : gpsSkipped ? (
-                <><span className="w-2 h-2 rounded-full bg-gray-400 shrink-0" />
-                  <span className="text-gray-500">Using temple entrance.{' '}
-                    <button onClick={onRequestLocation} className="underline text-primary">Retry GPS</button></span></>
+                <div className="flex items-center gap-1.5 text-emerald-700 font-medium">
+                  <div className="w-2 h-2 rounded-full bg-emerald-600" />
+                  <span>{locale === 'te' ? 'జీపీఎస్ కనెక్ట్ అయింది' : 'GPS location ready'}</span>
+                </div>
               ) : (
-                <><span className="w-2 h-2 rounded-full bg-gray-300 animate-pulse shrink-0" />
-                  <span className="text-gray-400 font-medium">Waiting for GPS…</span></>
+                <button
+                  type="button"
+                  onClick={onRequestLocation}
+                  className="flex items-center gap-1.5 text-amber-700 hover:underline font-medium text-left"
+                >
+                  <MapPin size={12} />
+                  <span>{locale === 'te' ? 'ఖచ్చితమైన మార్గం కోసం జీపీఎస్ ప్రారంభించండి' : 'Enable GPS for exact route'}</span>
+                </button>
               )}
             </div>
 
             {routeError && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-700">
-                <p className="font-bold mb-0.5">{t('routeUnavailable')}</p>
-                <p>{routeError}</p>
+              <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+                {routeError}
               </div>
             )}
 
+            {/* Start Navigation Action */}
             <button
-              className="btn btn-primary btn-lg w-full shadow-lg text-sm font-bold flex items-center justify-center gap-2"
               onClick={onStart}
               disabled={routeLoading || !destLngLat}
-              id="start-navigation-btn"
+              className="btn btn-primary w-full py-3 text-sm font-bold shadow-lg shadow-primary/20 flex items-center justify-center gap-2 active:scale-98 transition-all"
             >
               {routeLoading ? (
-                <LoadingSpinner size="sm" className="text-white" />
+                <>
+                  <LoadingSpinner size="sm" className="text-white" />
+                  <span>{locale === 'te' ? 'మార్గం లెక్కిస్తోంది...' : 'Calculating Route...'}</span>
+                </>
               ) : (
-                <Navigation size={18} />
+                <>
+                  <Crosshair size={18} />
+                  <span>{locale === 'te' ? 'నావిగేషన్ ప్రారంభించు' : t('startNavigation')}</span>
+                </>
               )}
-              <span>
-                {routeLoading
-                  ? (locale === 'te' ? 'రూట్ లెక్కిస్తోంది...' : 'Calculating route...')
-                  : t('startNavigation')}
-              </span>
             </button>
-          </>
+          </div>
         ) : (
-          <div className="space-y-3">
+          <div className="flex flex-col gap-3">
             <div>
-              <h3 className="font-bold text-base text-gray-900">
-                {locale === 'te' ? 'గమ్యస్థానాన్ని ఎంచుకోండి' : 'Select a Destination'}
-              </h3>
+              <h2 className="text-base font-bold text-gray-900">
+                {locale === 'te' ? 'గమ్యస్థానాన్ని ఎంచుకోండి' : 'Choose a Destination'}
+              </h2>
               <p className="text-xs text-gray-500 mt-0.5">
-                {locale === 'te' ? 'మొత్తం ప్రాంతాలు & సేవలు' : 'Choose any temple zone, queue, or facility'}
+                {locale === 'te'
+                  ? 'క్యూ లైన్, పార్కింగ్, లేదా ఆలయ సౌకర్యాన్ని ఎంచుకోండి'
+                  : 'Select a darshan queue, parking area, or facility'}
               </p>
             </div>
 
@@ -526,7 +554,7 @@ function PreNavSidebar({
                   onClick={() => setSelectedSector('all')}
                   className={`px-2.5 py-1 rounded-lg shrink-0 font-medium transition-all ${
                     selectedSector === 'all'
-                      ? 'bg-[#9b1b30] text-white font-bold'
+                      ? 'bg-[#8b142d] text-white font-bold'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                 >
@@ -541,7 +569,7 @@ function PreNavSidebar({
                       onClick={() => setSelectedSector(s.id)}
                       className={`px-2.5 py-1 rounded-lg shrink-0 transition-all ${
                         selectedSector === s.id
-                          ? 'bg-[#9b1b30] text-white font-bold'
+                          ? 'bg-[#8b142d] text-white font-bold'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
                     >
@@ -580,8 +608,9 @@ function PreNavSidebar({
                         {(sectorName || subSectorName) && (
                           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                             {sectorName && (
-                              <span className="text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.2 rounded">
-                                📍 {sectorName}
+                              <span className="text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                <MapPin size={10} className="text-amber-700" />
+                                {sectorName}
                               </span>
                             )}
                             {subSectorName && (
@@ -639,29 +668,31 @@ function NavigatePageContent() {
   const [gpsSkipped, setGpsSkipped] = useState(false);
   const [autoFollow, setAutoFollow] = useState(true);
   const [recenterTrigger, setRecentreTrigger] = useState(0);
+  const [mapRotationMode, setMapRotationMode] = useState<'heads-up' | 'north-up'>('heads-up');
 
   const handleRecentre = useCallback(() => {
     setAutoFollow(true);
     setRecentreTrigger((c) => c + 1);
   }, []);
 
+  const toggleMapRotation = useCallback(() => {
+    setMapRotationMode((prev) => (prev === 'heads-up' ? 'north-up' : 'heads-up'));
+  }, []);
+
   // Track current destination ref for use in reroute callback
   const destLngLatRef = useRef<LngLat | null>(null);
-  /** Tracks latest GPS position — updated by live nav, used in reroute callback */
   const currentLocationRef = useRef<LngLat | null>(null);
 
-  const destLngLat: LngLat | null = destination?.position?.coordinates
-    ? { lng: destination.position.coordinates[0], lat: destination.position.coordinates[1] }
-    : null;
+  const destLngLat: LngLat | null = useMemo(() => {
+    const coords = destination?.position?.coordinates;
+    return coords ? { lng: coords[0], lat: coords[1] } : null;
+  }, [destination?.position?.coordinates]);
 
-  // Keep destLngLatRef in sync for use inside reroute callback (stable ref)
   useEffect(() => { destLngLatRef.current = destLngLat; }, [destLngLat]);
 
   const handleArrival = useCallback(() => setShowArrival(true), []);
   const handleStepAdvance = useCallback((idx: number) => setManualStepIdx(idx), []);
 
-  // Reroute: called when off-route is confirmed OR manually triggered.
-  // Uses currentLocationRef so this callback doesn't need to depend on live.
   const handleReroute = useCallback(async () => {
     const currentDest = destLngLatRef.current;
     const currentPos = currentLocationRef.current;
@@ -700,7 +731,6 @@ function NavigatePageContent() {
     onOffRoute: handleOffRoute,
   });
 
-  // Keep location ref in sync after every render where live.currentLocation changes
   useEffect(() => {
     if (live.currentLocation) {
       currentLocationRef.current = live.currentLocation;
@@ -721,7 +751,6 @@ function NavigatePageContent() {
         r.onchange = () => setPermissionState(r.state === 'granted' ? 'granted' : r.state === 'denied' ? 'denied' : 'prompt');
       }).catch(() => {});
     }
-    // Schedule via microtask — avoids synchronous setState inside effect body
     Promise.resolve().then(() => setAcquiringGps(true));
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -755,13 +784,24 @@ function NavigatePageContent() {
     setRouteError(null);
     setManualStepIdx(0);
     setAutoFollow(true);
+    setMapRotationMode('heads-up');
+
+    // Request compass permission on iOS if supported
+    if (
+      typeof window !== 'undefined' &&
+      typeof (DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> }).requestPermission === 'function'
+    ) {
+      try {
+        await (DeviceOrientationEvent as unknown as { requestPermission: () => Promise<string> }).requestPermission();
+      } catch {}
+    }
+
     try {
       const result = await createRoutingService().route({ origin, destination: destLngLat });
 
-      // Note if we fell back to a straight-line mock route (OSRM unavailable)
       if (result.is_mock) {
         setRouteError(
-          'Routing service unavailable — showing approximate straight-line route. Actual path may differ.'
+          'Routing service unavailable — showing approximate path. Actual path may differ.'
         );
       }
 
@@ -787,6 +827,7 @@ function NavigatePageContent() {
     setManualStepIdx(0);
     setShowArrival(false);
     setAutoFollow(true);
+    setMapRotationMode('heads-up');
   }, []);
 
   const goNextStep = useCallback(() => {
@@ -846,36 +887,42 @@ function NavigatePageContent() {
     );
   }
 
-  // ─── ACTIVE NAVIGATION: full-screen map layout ────────────────────
+  // ─── ACTIVE NAVIGATION: full-screen Google Maps-style layout ────────────────────
   if (isNavigating && route) {
     return (
       <div className="fixed inset-0 z-[1200] overflow-hidden bg-gray-900" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
-        {/* Map — full screen */}
+        {/* Map — full screen with navigation puck, rotation, and auto-follow */}
         <MapView
           className="w-full h-full"
           userLocation={bestUserLocation ?? undefined}
           destination={destLngLat}
-          destinations={[]}
+          selectedLocation={destination ?? undefined}
+          destinations={allLocations ?? []}
           onLocationClick={() => {}}
           center={mapCenter}
           route={route}
           onUserInteraction={() => setAutoFollow(false)}
           recenterTrigger={recenterTrigger}
           autoFollow={autoFollow}
+          isNavigating={true}
+          heading={live.heading}
+          mapRotationMode={mapRotationMode}
         />
 
-        {/* Top instruction overlay */}
+        {/* Top instruction overlay (NO speaker logo, live distance countdown) */}
         <NavTopCard
           currentStep={currentStep}
           nextStep={nextStep}
+          stepDistanceMeters={live.stepDistanceMeters}
           locale={locale}
           accuracy={live.accuracy}
           gpsStatus={live.gpsStatus}
           speedKmh={live.speedKmh}
         />
 
-        {/* Bottom bar overlay */}
+        {/* Bottom bar overlay (Exact Time ETA, Compass toggle, Re-centre) */}
         <NavBottomBar
+          etaClock={live.etaClock}
           remainingSeconds={live.remainingSeconds}
           remainingMeters={live.remainingMeters}
           elapsedSeconds={live.elapsedSeconds}
@@ -886,9 +933,12 @@ function NavigatePageContent() {
           isOffRoute={live.isOffRoute}
           isRerouting={isRerouting}
           isAutoFollowing={autoFollow}
+          mapRotationMode={mapRotationMode}
+          onToggleMapRotation={toggleMapRotation}
+          heading={live.heading}
         />
 
-        {/* Network error / route error banners during active navigation */}
+        {/* Route / Network error banners */}
         {routeError && !isRerouting && (
           <div
             className="absolute left-4 right-4 flex items-start gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-white shadow-xl"
@@ -905,7 +955,7 @@ function NavigatePageContent() {
           </div>
         )}
 
-        {/* Arrival overlay */}
+        {/* Arrival overlay (Clean, dignified temple celebration, NO emojis) */}
         {showArrival && destination && (
           <ArrivalOverlay
             destName={locale === 'te' ? destination.name_te : destination.name}
@@ -921,7 +971,6 @@ function NavigatePageContent() {
   // ─── PRE-NAVIGATION: sidebar + map layout ────────────────────────
   return (
     <div className="flex flex-col md:flex-row h-[calc(100dvh-80px)] md:h-[calc(100dvh-64px)] w-full overflow-hidden relative">
-
       {destLoading ? (
         <div className="order-2 md:order-1 md:w-105 shrink-0 bg-white border-r border-border flex items-center justify-center p-8">
           <LoadingSpinner size="md" className="text-primary" />
@@ -941,7 +990,6 @@ function NavigatePageContent() {
           onRequestLocation={requestLocation}
           onSelectDest={(id) => router.push(id ? `/navigate?location=${id}` : '/navigate')}
           t={t}
-          tLoc={tLoc}
         />
       )}
 
@@ -951,6 +999,7 @@ function NavigatePageContent() {
           className="w-full h-full"
           userLocation={bestUserLocation ?? undefined}
           destination={destLngLat}
+          selectedLocation={destination ?? undefined}
           destinations={allLocations ?? []}
           onLocationClick={(loc) => router.push(`/navigate?location=${loc.id}`)}
           center={mapCenter}

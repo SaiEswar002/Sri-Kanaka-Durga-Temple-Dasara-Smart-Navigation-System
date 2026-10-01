@@ -12,6 +12,7 @@ interface MapProps {
   zoom?: number;
   userLocation?: LngLat | null;
   destination?: LngLat | null;
+  selectedLocation?: Location | null;
   destinations?: Location[];
   route?: NavigationRoute | null;
   className?: string;
@@ -25,11 +26,18 @@ interface MapProps {
   recenterTrigger?: number;
   /** When true, map smoothly tracks userLocation updates */
   autoFollow?: boolean;
+  /** Active turn-by-turn navigation mode */
+  isNavigating?: boolean;
+  /** User heading angle in degrees (0 = North, 90 = East) */
+  heading?: number | null;
+  /** Map rotation orientation mode: heads-up (follows heading) or north-up (fixed North) */
+  mapRotationMode?: 'heads-up' | 'north-up';
 }
 
 // Default center: Indrakeeladri Hill / Sri Kanaka Durga Temple, Vijayawada
 const DEFAULT_CENTER: LngLat = { lng: 80.6065, lat: 16.5154 };
 const DEFAULT_ZOOM = 16;
+const NAV_ZOOM = 18;
 
 // Cache leaflet dynamic import
 let leafletPromise: Promise<typeof import('leaflet')> | null = null;
@@ -40,23 +48,67 @@ function getLeaflet() {
   return leafletPromise;
 }
 
-// Category color and icon mapper
-function getCategoryInfo(categorySlug?: string): { bg: string; icon: string } {
+/** Compute point D meters ahead along bearing in degrees (for perspective camera offset) */
+function computeOffsetCoordinate(loc: LngLat, bearingDeg: number, distanceM: number): LngLat {
+  const R = 6371000;
+  const dByR = distanceM / R;
+  const latRad = (loc.lat * Math.PI) / 180;
+  const lngRad = (loc.lng * Math.PI) / 180;
+  const brngRad = (bearingDeg * Math.PI) / 180;
+
+  const newLatRad = Math.asin(
+    Math.sin(latRad) * Math.cos(dByR) +
+    Math.cos(latRad) * Math.sin(dByR) * Math.cos(brngRad)
+  );
+  const newLngRad = lngRad + Math.atan2(
+    Math.sin(brngRad) * Math.sin(dByR) * Math.cos(latRad),
+    Math.cos(dByR) - Math.sin(latRad) * Math.sin(newLatRad)
+  );
+
+  return {
+    lat: (newLatRad * 180) / Math.PI,
+    lng: (newLngRad * 180) / Math.PI,
+  };
+}
+
+// Category color and clean vector icon mapper (no emojis)
+function getCategoryInfo(categorySlug?: string): { bg: string; iconSvg: string } {
   switch (categorySlug) {
     case 'darshan':
-      return { bg: '#9b1b30', icon: '🛕' };
+      return {
+        bg: '#9b1b30',
+        iconSvg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L4 8v14h16V8L12 2z"/><path d="M9 22V12h6v10"/></svg>',
+      };
     case 'parking':
-      return { bg: '#2563eb', icon: '🅿️' };
+      return {
+        bg: '#2563eb',
+        iconSvg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg>',
+      };
     case 'food':
-      return { bg: '#ea580c', icon: '🍲' };
+      return {
+        bg: '#ea580c',
+        iconSvg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>',
+      };
     case 'medical':
-      return { bg: '#dc2626', icon: '➕' };
+      return {
+        bg: '#dc2626',
+        iconSvg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="4" x2="12" y2="20"/><line x1="4" y1="12" x2="20" y2="12"/></svg>',
+      };
     case 'bus':
-      return { bg: '#059669', icon: '🚌' };
+      return {
+        bg: '#059669',
+        iconSvg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="15" rx="3"/><path d="M3 10h18"/><circle cx="7" cy="15" r="1.5" fill="currentColor"/><circle cx="17" cy="15" r="1.5" fill="currentColor"/><path d="M5 18v2M19 18v2"/></svg>',
+      };
     case 'ghat':
-      return { bg: '#0284c7', icon: '🌊' };
+      return {
+        bg: '#0284c7',
+        iconSvg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12c2.5 0 2.5-3 5-3s2.5 3 5 3 2.5-3 5-3 2.5 3 5 3"/><path d="M2 17c2.5 0 2.5-3 5-3s2.5 3 5 3 2.5-3 5-3 2.5 3 5 3"/></svg>',
+      };
     default:
-      return { bg: '#7a1425', icon: '📍' };
+      return {
+        bg: '#7a1425',
+        iconSvg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>',
+      };
   }
 }
 
@@ -65,6 +117,7 @@ export function MapView({
   zoom = DEFAULT_ZOOM,
   userLocation,
   destination,
+  selectedLocation,
   destinations = [],
   route,
   className,
@@ -75,8 +128,12 @@ export function MapView({
   onUserInteraction,
   recenterTrigger,
   autoFollow = false,
+  isNavigating = false,
+  heading = null,
+  mapRotationMode = 'heads-up',
 }: MapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
+  const mapRotationWrapperRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletType.Map | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -92,6 +149,14 @@ export function MapView({
   const destMarkerRef = useRef<LeafletType.Marker | null>(null);
   const markersGroupRef = useRef<LeafletType.LayerGroup | null>(null);
   const routeGroupRef = useRef<LeafletType.LayerGroup | null>(null);
+
+  // Position interpolation state for user marker
+  const currentMarkerPosRef = useRef<{ lat: number; lng: number } | null>(null);
+  const markerAnimFrameRef = useRef<number | null>(null);
+  const isNavigatingRef = useRef(isNavigating);
+  useEffect(() => {
+    isNavigatingRef.current = isNavigating;
+  }, [isNavigating]);
 
   // Safe helper to check if map is valid and ready
   const isMapAlive = useCallback((): boolean => {
@@ -128,16 +193,16 @@ export function MapView({
           zoom,
           zoomControl: false,
           attributionControl: false,
-          zoomAnimation: false,
-          fadeAnimation: false,
-          markerZoomAnimation: false,
+          zoomAnimation: true,
+          fadeAnimation: true,
+          markerZoomAnimation: true,
           dragging: interactive,
           scrollWheelZoom: interactive,
           touchZoom: interactive,
           doubleClickZoom: interactive,
         });
 
-        // Listen for user manual pan or zoom
+        // Listen for user manual pan or zoom to pause auto-follow
         map.on('dragstart', () => {
           onUserInteractionRef.current?.();
         });
@@ -170,7 +235,7 @@ export function MapView({
 
         tiles.addTo(map);
 
-        // Marker & Route & Closure layer groups
+        // Marker & Route layer groups
         markersGroupRef.current = L.layerGroup().addTo(map);
         routeGroupRef.current = L.layerGroup().addTo(map);
 
@@ -186,14 +251,9 @@ export function MapView({
         };
 
         map.whenReady(clearLoading);
-
-        // Also clear loading on first tile (so user sees map immediately)
         tiles.once('tileload', clearLoading);
-
-        // Safety fallback: clear loading after 4 seconds regardless
         const loadTimeout = setTimeout(clearLoading, 4000);
 
-        // Watch for container resizes
         const resizeObserver = new ResizeObserver(() => {
           if (isMapAlive()) {
             map.invalidateSize();
@@ -219,6 +279,9 @@ export function MapView({
     return () => {
       isMounted = false;
       setMapReady(false);
+      if (markerAnimFrameRef.current) {
+        cancelAnimationFrame(markerAnimFrameRef.current);
+      }
       if (mapRef.current) {
         const map = mapRef.current;
         mapRef.current = null;
@@ -232,19 +295,19 @@ export function MapView({
     };
   }, []); // Run on mount only
 
-  // 2. Center / Zoom prop updates (only when not auto-following active navigation to avoid overriding pan)
+  // 2. Center / Zoom updates (when not auto-following active navigation)
   useEffect(() => {
     if (!mapReady || !isMapAlive()) return;
     const map = mapRef.current;
     if (!map) return;
-    if (autoFollow) return; // In autoFollow mode, updateUser handles smooth panning
+    if (autoFollow && isNavigating) return;
 
     try {
       map.setView([center.lat, center.lng], zoom, { animate: false });
     } catch (e) {
       console.warn('[MapView] Center update error:', e);
     }
-  }, [center.lat, center.lng, zoom, autoFollow, mapReady, isMapAlive]);
+  }, [center.lat, center.lng, zoom, autoFollow, isNavigating, mapReady, isMapAlive]);
 
   // 2b. Recenter trigger (explicit user button click)
   const prevRecenterRef = useRef(recenterTrigger);
@@ -260,18 +323,23 @@ export function MapView({
     const target = userLocation ?? (destination ?? center);
     if (target) {
       try {
-        map.setView([target.lat, target.lng], 17, { animate: true });
+        const targetZoom = isNavigating ? NAV_ZOOM : 17;
+        let finalCenter = target;
+        if (isNavigating && mapRotationMode === 'heads-up' && heading !== null) {
+          finalCenter = computeOffsetCoordinate(target, heading, 40);
+        }
+        map.setView([finalCenter.lat, finalCenter.lng], targetZoom, { animate: true });
       } catch (e) {
         console.warn('[MapView] Recenter error:', e);
       }
     }
-  }, [recenterTrigger, userLocation, destination, center, mapReady, isMapAlive]);
+  }, [recenterTrigger, userLocation, destination, center, isNavigating, mapRotationMode, heading, mapReady, isMapAlive]);
 
-  // 3. User Location Marker + Smooth Auto-Follow Pan
+  // 3. User Location Marker + Smooth Animation & Camera Offset
   useEffect(() => {
     if (!mapReady || !isMapAlive()) return;
 
-    async function updateUser() {
+    async function updateUserMarker() {
       const map = mapRef.current;
       if (!map || !isMapAlive()) return;
       const L = await getLeaflet();
@@ -281,43 +349,124 @@ export function MapView({
         if (userMarkerRef.current) {
           userMarkerRef.current.remove();
           userMarkerRef.current = null;
+          currentMarkerPosRef.current = null;
         }
         return;
       }
 
-      const pulseIcon = L.divIcon({
-        className: 'user-pulse-icon-wrapper',
-        html: `
+      const activeHeading = heading ?? 0;
+      // In heads-up mode, map rotates by -heading, so arrow inside map pointing at activeHeading points UP on screen.
+      // In north-up mode, map is at 0 deg, so arrow rotates to activeHeading.
+      const puckRotation = activeHeading;
+
+      // Create or update marker icon
+      const iconHtml = isNavigating
+        ? `
+          <div class="nav-puck-container" style="transform: rotate(${puckRotation}deg);">
+            <div class="nav-puck-halo"></div>
+            <div class="nav-puck-cone"></div>
+            <div class="nav-puck-body">
+              <svg class="nav-puck-chevron" viewBox="0 0 24 24" width="22" height="22">
+                <path d="M12 2L4 19L12 15L20 19L12 2Z" fill="#ffffff" stroke="#f59e0b" stroke-width="1.8" stroke-linejoin="round"/>
+                <circle cx="12" cy="14" r="2" fill="#8b142d" />
+              </svg>
+            </div>
+          </div>
+        `
+        : `
           <div class="user-pulse-marker">
             <div class="pulse-ring"></div>
             <div class="pulse-core"></div>
           </div>
-        `,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
+        `;
+
+      const iconSize: [number, number] = isNavigating ? [44, 44] : [28, 28];
+      const iconAnchor: [number, number] = isNavigating ? [22, 22] : [14, 14];
+
+      const markerIcon = L.divIcon({
+        className: isNavigating ? 'nav-puck-marker-wrapper' : 'user-pulse-icon-wrapper',
+        html: iconHtml,
+        iconSize,
+        iconAnchor,
       });
 
       if (!userMarkerRef.current) {
         userMarkerRef.current = L.marker([userLocation.lat, userLocation.lng], {
-          icon: pulseIcon,
-          zIndexOffset: 1000,
+          icon: markerIcon,
+          zIndexOffset: 1200,
         }).addTo(map);
+        currentMarkerPosRef.current = { lat: userLocation.lat, lng: userLocation.lng };
       } else {
-        userMarkerRef.current.setLatLng([userLocation.lat, userLocation.lng]);
+        // Update icon if navigation mode toggled
+        userMarkerRef.current.setIcon(markerIcon);
+
+        // Smooth position interpolation between GPS updates
+        const startPos = currentMarkerPosRef.current ?? userLocation;
+        const targetPos = userLocation;
+        const dLat = targetPos.lat - startPos.lat;
+        const dLng = targetPos.lng - startPos.lng;
+        const approxDistM = Math.sqrt(dLat * dLat + dLng * dLng) * 111139;
+
+        if (approxDistM > 0.2 && approxDistM < 80) {
+          if (markerAnimFrameRef.current) {
+            cancelAnimationFrame(markerAnimFrameRef.current);
+          }
+          const animDuration = 600; // ms
+          const animStart = performance.now();
+
+          const stepAnim = (time: number) => {
+            const elapsed = time - animStart;
+            const progress = Math.min(1, elapsed / animDuration);
+            // Cubic ease out
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const curLat = startPos.lat + dLat * eased;
+            const curLng = startPos.lng + dLng * eased;
+
+            if (userMarkerRef.current) {
+              userMarkerRef.current.setLatLng([curLat, curLng]);
+            }
+
+            if (progress < 1) {
+              markerAnimFrameRef.current = requestAnimationFrame(stepAnim);
+            } else {
+              currentMarkerPosRef.current = targetPos;
+            }
+          };
+
+          markerAnimFrameRef.current = requestAnimationFrame(stepAnim);
+        } else {
+          // Snap directly if distance is large or tiny
+          userMarkerRef.current.setLatLng([targetPos.lat, targetPos.lng]);
+          currentMarkerPosRef.current = targetPos;
+        }
       }
 
-      // If autoFollow is enabled during active navigation, smoothly follow user
+      // Smooth Auto-Follow: place user in lower-middle of screen in Heads-Up mode
       if (autoFollow) {
         try {
-          map.panTo([userLocation.lat, userLocation.lng], { animate: true, duration: 0.5 });
+          let cameraTarget = userLocation;
+          if (isNavigating && mapRotationMode === 'heads-up' && heading !== null) {
+            // Offset camera ~40m ahead of user along heading
+            cameraTarget = computeOffsetCoordinate(userLocation, heading, 40);
+          }
+
+          if (isNavigating && map.getZoom() < 17) {
+            map.setView([cameraTarget.lat, cameraTarget.lng], NAV_ZOOM, { animate: true });
+          } else {
+            map.panTo([cameraTarget.lat, cameraTarget.lng], {
+              animate: true,
+              duration: 0.6,
+              easeLinearity: 0.25,
+            });
+          }
         } catch {}
       }
     }
 
-    updateUser();
-  }, [userLocation, autoFollow, mapReady, isMapAlive]);
+    updateUserMarker();
+  }, [userLocation, autoFollow, isNavigating, heading, mapRotationMode, mapReady, isMapAlive]);
 
-  // 4. Destination Marker & Auto-framing
+  // 4. Destination Marker
   useEffect(() => {
     if (!mapReady || !isMapAlive()) return;
 
@@ -335,16 +484,29 @@ export function MapView({
         return;
       }
 
+      // Identify destination category so the icon never changes into something else
+      const activeLoc = selectedLocation ?? destinations.find(
+        (loc) =>
+          loc.position?.coordinates &&
+          destination &&
+          Math.abs(loc.position.coordinates[1] - destination.lat) < 0.0001 &&
+          Math.abs(loc.position.coordinates[0] - destination.lng) < 0.0001
+      );
+      const cat = getCategoryInfo(activeLoc?.category?.slug);
+
       const destIcon = L.divIcon({
         className: 'dest-pin-wrapper',
         html: `
           <div class="dest-pin-marker">
-            <div class="dest-pin-badge">🛕</div>
-            <div class="dest-pin-point"></div>
+            <div class="dest-pin-halo" style="background: radial-gradient(circle, ${cat.bg}66 0%, transparent 70%);"></div>
+            <div class="dest-pin-badge" style="background: ${cat.bg};">
+              <span class="facility-icon text-white">${cat.iconSvg}</span>
+            </div>
+            <div class="dest-pin-point" style="border-top-color: ${cat.bg};"></div>
           </div>
         `,
-        iconSize: [38, 44],
-        iconAnchor: [19, 44],
+        iconSize: [40, 48],
+        iconAnchor: [20, 48],
       });
 
       if (!destMarkerRef.current) {
@@ -353,11 +515,12 @@ export function MapView({
           zIndexOffset: 950,
         }).addTo(map);
       } else {
+        destMarkerRef.current.setIcon(destIcon);
         destMarkerRef.current.setLatLng([destination.lat, destination.lng]);
       }
 
-      // If no route polyline is currently active, fit or center without crashing
-      if (!route) {
+      // If no route polyline is currently active, fit or center
+      if (!route && !isNavigating) {
         try {
           if (userLocation) {
             const bounds = L.latLngBounds(
@@ -373,9 +536,9 @@ export function MapView({
     }
 
     updateDestination();
-  }, [destination, route, userLocation, mapReady, isMapAlive]);
+  }, [destination, selectedLocation, destinations, route, isNavigating, userLocation, mapReady, isMapAlive]);
 
-  // 5. Render Facility Destinations
+  // 5. Render Facility Destinations (Pre-navigation browsing)
   useEffect(() => {
     if (!mapReady || !isMapAlive()) return;
     const group = markersGroupRef.current;
@@ -386,6 +549,9 @@ export function MapView({
       if (!isMapAlive() || !group) return;
 
       group.clearLayers();
+
+      // In active navigation mode, hide facility markers to keep screen clean and performant
+      if (isNavigating) return;
 
       destinations.forEach((loc) => {
         if (!loc.position?.coordinates) return;
@@ -402,7 +568,7 @@ export function MapView({
           className: 'facility-marker-wrapper',
           html: `
             <div class="facility-marker-pin" style="background-color: ${cat.bg};">
-              <span class="facility-icon">${cat.icon}</span>
+              <span class="facility-icon text-white">${cat.iconSvg}</span>
             </div>
           `,
           iconSize: [32, 32],
@@ -420,7 +586,7 @@ export function MapView({
         popupCard.innerHTML = `
           <div class="font-bold text-xs sm:text-sm text-[#9b1b30] mb-0.5 leading-snug">${loc.name}</div>
           ${loc.name_te ? `<div class="text-[11px] text-gray-500 font-medium mb-1">${loc.name_te}</div>` : ''}
-          ${sectorName ? `<div class="text-[10px] font-semibold text-gray-700 bg-amber-50 rounded px-1.5 py-0.5 inline-block mb-1 border border-amber-200">📍 ${sectorName}${subSectorName ? ` &rsaquo; ${subSectorName}` : ''}</div>` : ''}
+          ${sectorName ? `<div class="text-[10px] font-semibold text-gray-700 bg-amber-50 rounded px-1.5 py-0.5 inline-block mb-1 border border-amber-200">${sectorName}${subSectorName ? ` &rsaquo; ${subSectorName}` : ''}</div>` : ''}
           ${loc.address ? `<div class="text-[10px] text-gray-600 mb-2 truncate max-w-[200px]">${loc.address}</div>` : ''}
           <button class="navigate-btn">
             Select Destination / ఎంచుకోండి
@@ -460,9 +626,9 @@ export function MapView({
     }
 
     renderDestinations();
-  }, [destinations, destination, route, onLocationClick, mapReady, isMapAlive]);
+  }, [destinations, destination, route, isNavigating, onLocationClick, mapReady, isMapAlive]);
 
-  // 6. Render Route Line
+  // 6. Render Route Line (Preserved across GPS updates without redrawing)
   useEffect(() => {
     if (!mapReady || !isMapAlive()) return;
     const group = routeGroupRef.current;
@@ -483,14 +649,14 @@ export function MapView({
       const glow = L.polyline(latLngs, {
         color: '#f59e0b',
         weight: 8,
-        opacity: 0.55,
+        opacity: 0.6,
         lineCap: 'round',
         lineJoin: 'round',
       });
 
       // Durga Maroon main route
       const line = L.polyline(latLngs, {
-        color: '#9b1b30',
+        color: '#8b142d',
         weight: 5,
         opacity: 0.95,
         lineCap: 'round',
@@ -500,19 +666,20 @@ export function MapView({
       group.addLayer(glow);
       group.addLayer(line);
 
-      try {
-        map.fitBounds(line.getBounds(), {
-          padding: [50, 50],
-          maxZoom: 18,
-          animate: false,
-        });
-      } catch {}
+      // Only fit bounds initially when route is loaded and not yet in auto-follow navigation
+      if (!isNavigatingRef.current) {
+        try {
+          map.fitBounds(line.getBounds(), {
+            padding: [50, 50],
+            maxZoom: 18,
+            animate: false,
+          });
+        } catch {}
+      }
     }
 
     renderRoute();
   }, [route, mapReady, isMapAlive]);
-
-
 
   if (error) {
     return (
@@ -534,6 +701,13 @@ export function MapView({
     );
   }
 
+  // Calculate smooth map rotation transform:
+  // When in Heads-Up mode and navigating with auto-follow: rotate map by -heading and scale by 1.42
+  // When panned away or in North-up: scale(1) rotate(0deg)
+  const isHeadsUpActive = isNavigating && mapRotationMode === 'heads-up' && heading !== null && autoFollow;
+  const rotationDegrees = isHeadsUpActive ? -heading : 0;
+  const mapScale = isHeadsUpActive ? 1.42 : 1;
+
   return (
     <div className={cn('relative w-full h-full overflow-hidden select-none', className)}>
       {/* Loading indicator */}
@@ -546,12 +720,21 @@ export function MapView({
         </div>
       )}
 
-      {/* Map DOM Element */}
-      <div ref={mapContainer} className="w-full h-full min-h-full" style={{ minHeight: '300px' }} />
+      {/* Rotating Map Wrapper */}
+      <div
+        ref={mapRotationWrapperRef}
+        className="w-full h-full origin-center"
+        style={{
+          transform: `scale(${mapScale}) rotate(${rotationDegrees.toFixed(1)}deg)`,
+          transition: 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)',
+        }}
+      >
+        <div ref={mapContainer} className="w-full h-full min-h-full" style={{ minHeight: '300px' }} />
+      </div>
 
       {/* Global CSS for markers and popups */}
       <style jsx global>{`
-        /* User GPS Pulse */
+        /* Standard User GPS Pulse (Pre-nav) */
         .user-pulse-marker {
           position: relative;
           width: 24px;
@@ -563,16 +746,16 @@ export function MapView({
         .pulse-core {
           width: 14px;
           height: 14px;
-          background: #2563eb;
+          background: #8b142d;
           border: 2.5px solid #ffffff;
           border-radius: 50%;
-          box-shadow: 0 2px 8px rgba(37, 99, 235, 0.6);
+          box-shadow: 0 2px 8px rgba(139, 20, 45, 0.6);
           z-index: 2;
         }
         .pulse-ring {
           position: absolute;
           inset: -4px;
-          border: 3px solid rgba(37, 99, 235, 0.5);
+          border: 3px solid rgba(245, 158, 11, 0.6);
           border-radius: 50%;
           animation: user-beacon-pulse 2s ease-out infinite;
           z-index: 1;
@@ -580,6 +763,60 @@ export function MapView({
         @keyframes user-beacon-pulse {
           0% { transform: scale(0.6); opacity: 1; }
           100% { transform: scale(2.6); opacity: 0; }
+        }
+
+        /* 3D Directional Navigation Arrow / Puck (Active Turn-by-Turn Navigation) */
+        .nav-puck-marker-wrapper {
+          overflow: visible !important;
+        }
+        .nav-puck-container {
+          position: relative;
+          width: 44px;
+          height: 44px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: transform 0.2s cubic-bezier(0.2, 0, 0.2, 1);
+        }
+        .nav-puck-halo {
+          position: absolute;
+          inset: 2px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(245, 158, 11, 0.35) 0%, rgba(245, 158, 11, 0) 70%);
+          animation: nav-puck-halo-pulse 2.2s ease-in-out infinite;
+          pointer-events: none;
+        }
+        @keyframes nav-puck-halo-pulse {
+          0%, 100% { transform: scale(1); opacity: 0.6; }
+          50% { transform: scale(1.35); opacity: 1; }
+        }
+        .nav-puck-cone {
+          position: absolute;
+          top: -14px;
+          width: 0;
+          height: 0;
+          border-left: 14px solid transparent;
+          border-right: 14px solid transparent;
+          border-bottom: 22px solid rgba(245, 158, 11, 0.25);
+          filter: blur(1.5px);
+          pointer-events: none;
+        }
+        .nav-puck-body {
+          position: relative;
+          width: 34px;
+          height: 34px;
+          background: linear-gradient(135deg, #8b142d 0%, #5c0f1d 100%);
+          border: 2.5px solid #ffffff;
+          border-radius: 50%;
+          box-shadow: 0 4px 12px rgba(92, 15, 29, 0.6), 0 1px 3px rgba(0, 0, 0, 0.4);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 2;
+        }
+        .nav-puck-chevron {
+          display: block;
+          filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
         }
 
         /* Destination Pin */
@@ -594,14 +831,13 @@ export function MapView({
         .dest-pin-badge {
           width: 34px;
           height: 34px;
-          background: linear-gradient(135deg, #9b1b30, #7a1425);
+          background: linear-gradient(135deg, #8b142d, #5c0f1d);
           border: 2.5px solid #fde047;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 17px;
-          box-shadow: 0 4px 12px rgba(122, 20, 37, 0.5);
+          box-shadow: 0 4px 12px rgba(92, 15, 29, 0.5);
           color: white;
         }
         .dest-pin-point {
@@ -609,7 +845,7 @@ export function MapView({
           height: 0;
           border-left: 6px solid transparent;
           border-right: 6px solid transparent;
-          border-top: 8px solid #7a1425;
+          border-top: 8px solid #5c0f1d;
           margin-top: -2px;
         }
 
@@ -631,8 +867,9 @@ export function MapView({
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
         }
         .facility-icon {
-          font-size: 14px;
-          line-height: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         /* Popups */
@@ -640,7 +877,7 @@ export function MapView({
           border-radius: 12px;
           padding: 4px;
           box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
-          border: 1px solid rgba(155, 27, 48, 0.15);
+          border: 1px solid rgba(139, 20, 45, 0.15);
         }
         .temple-popup .leaflet-popup-content {
           margin: 8px;
@@ -648,7 +885,7 @@ export function MapView({
         }
         .navigate-btn {
           width: 100%;
-          background: #9b1b30;
+          background: #8b142d;
           color: #ffffff;
           padding: 6px 10px;
           border-radius: 6px;
@@ -661,7 +898,7 @@ export function MapView({
           text-align: center;
         }
         .navigate-btn:hover {
-          background: #7a1425;
+          background: #6f1425;
         }
 
         /* Leaflet Controls */

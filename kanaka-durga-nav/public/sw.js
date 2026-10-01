@@ -14,6 +14,10 @@ const SHELL_URLS = [
   '/',
   '/offline',
   '/manifest.json',
+  '/favicon.ico',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/apple-touch-icon.png',
 ];
 
 const OFFLINE_PAGE = '/offline';

@@ -15,29 +15,49 @@
       "src": "/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "maskable any"
+      "purpose": "any"
     },
     {
       "src": "/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "maskable any"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "screenshots": [],
   "shortcuts": [
     {
-      "name": "Emergency",
-      "short_name": "SOS",
-      "description": "Quick access to emergency help",
-      "url": "/emergency",
+      "name": "Live Navigation",
+      "short_name": "Navigate",
+      "description": "Start live GPS navigation to temple facilities",
+      "url": "/navigate",
       "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     },
     {
-      "name": "Darshan Queue",
-      "short_name": "Queue",
-      "description": "Check darshan queue times",
-      "url": "/darshan",
+      "name": "Parking Finder",
+      "short_name": "Parking",
+      "description": "Find real-time parking spot availability",
+      "url": "/parking",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Annadanam Food",
+      "short_name": "Food",
+      "description": "Find free pilgrim meals and food counters",
+      "url": "/food",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Medical Aid",
+      "short_name": "Medical",
+      "description": "Locate medical camps and first aid centers",
+      "url": "/medical",
       "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
